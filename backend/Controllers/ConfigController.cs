@@ -15,6 +15,13 @@ public sealed class ConfigController(HealthConfig config) : ControllerBase
     public ApiResponse<IEnumerable<HealthMetric>> Metrics() =>
         ApiResponse<IEnumerable<HealthMetric>>.Succeeded(config.Metrics.Values);
 
+    // C1: the "How to" screen for a metric (Markdown). Placeholder text when the file is not written yet.
+    [HttpGet("howto/{metricCode}")]
+    public ApiResponse<HealthConfig.HowTo> HowTo(string metricCode) =>
+        config.Metrics.ContainsKey(metricCode)
+            ? ApiResponse<HealthConfig.HowTo>.Succeeded(config.GetHowTo(metricCode))
+            : throw new ApiProblem(404, "UNKNOWN_METRIC", $"Unknown metric '{metricCode}'.");
+
     [HttpGet("protocols")]
     public ApiResponse<IEnumerable<object>> Protocols() =>
         ApiResponse<IEnumerable<object>>.Succeeded(config.Protocols.Values.Select(p => (object)new { p.Id, p.Title, p.Version }));

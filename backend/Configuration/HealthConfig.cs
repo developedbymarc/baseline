@@ -24,8 +24,13 @@ public sealed class HealthConfig
     // config/context_rules.yaml; null when the file is absent (context factors are then off, with a warning).
     public ContextRulesFile? ContextRules { get; }
     public IReadOnlyList<string> Warnings => _warnings;
+    // Folder the files were loaded from (null for configs built in code, e.g. tests).
+    public string? ConfigDirectory { get; private set; }
+    // Protocol id -> file name, for the startup version line.
+    public IReadOnlyDictionary<string, string> ProtocolFiles => _protocolFiles;
 
     private readonly List<string> _warnings = [];
+    private readonly Dictionary<string, string> _protocolFiles = [];
 
     public HealthConfig(
         IEnumerable<HealthMetric> metrics, IEnumerable<ProtocolDefinition> protocols,
@@ -80,20 +85,62 @@ public sealed class HealthConfig
         var metricsFile = Parse<MetricsFile>(Yaml, metricsPath);
 
         // Every other *.yaml file with a tree_yaml block is a protocol.
-        var protocols = new List<ProtocolDefinition>();
+        var protocols = new List<(ProtocolDefinition Def, string File)>();
         foreach (var path in Directory.GetFiles(directory, "*.yaml").Order())
         {
             if (Path.GetFileName(path) is "metrics.yaml" or ContextRulesFileName) continue;
             if (!File.ReadAllText(path).Contains("tree_yaml:")) continue;
-            protocols.Add(Parse<ProtocolDefinition>(Yaml, path));
+            protocols.Add((Parse<ProtocolDefinition>(Yaml, path), Path.GetFileName(path)));
         }
 
         var rulesPath = Path.Combine(directory, ContextRulesFileName);
         var contextRules = File.Exists(rulesPath) ? Parse<ContextRulesFile>(StrictYaml, rulesPath) : null;
 
-        var config = new HealthConfig(metricsFile.Metrics, protocols, metricsFile.Version, contextRules);
+        var config = new HealthConfig(metricsFile.Metrics, protocols.Select(p => p.Def), metricsFile.Version, contextRules)
+        {
+            ConfigDirectory = Path.GetFullPath(directory),
+        };
+        foreach (var (def, file) in protocols) config._protocolFiles[def.Id] = file;
         config.Validate();
         return config;
+    }
+
+    // One line with the version of every loaded file, logged at startup.
+    public string VersionLine()
+    {
+        var parts = new List<string> { $"metrics.yaml v{MetricsVersion}" };
+        parts.AddRange(Protocols.Values.OrderBy(p => p.Id).Select(p => $"{_protocolFiles.GetValueOrDefault(p.Id, p.Id + ".yaml")} v{p.Version}"));
+        parts.Add(ContextRules is null ? $"{ContextRulesFileName} missing" : $"{ContextRulesFileName} v{ContextRules.Version}");
+        return "Config versions: " + string.Join(", ", parts);
+    }
+
+    public sealed record HowTo(string MetricCode, string? File, bool Available, string Markdown);
+
+    // How-to text named by a metric's instructions_md, relative to the config folder (story C1).
+    // Missing file -> clear placeholder (Member Y writes the texts); startup only warns.
+    public HowTo GetHowTo(string metricCode)
+    {
+        var metric = GetMetric(metricCode);
+        if (metric.InstructionsMd is not { } rel || ConfigDirectory is null)
+            return new HowTo(metricCode, metric.InstructionsMd, false, Placeholder(metric));
+        var path = ResolveInConfig(rel);
+        return path is not null && File.Exists(path)
+            ? new HowTo(metricCode, rel, true, File.ReadAllText(path))
+            : new HowTo(metricCode, rel, false, Placeholder(metric));
+    }
+
+    private static string Placeholder(HealthMetric m) =>
+        $"# {m.Name}\n\nThe step-by-step guide for this measurement has not been written yet"
+        + (m.InstructionsMd is null ? "." : $" (expected file: config/{m.InstructionsMd}).")
+        + "\n\nUntil it is added, follow your on-board training and the device instructions.";
+
+    // Full path inside the config folder, or null if the relative path would leave it.
+    private string? ResolveInConfig(string relative)
+    {
+        if (ConfigDirectory is null || Path.IsPathRooted(relative)) return null;
+        var full = Path.GetFullPath(Path.Combine(ConfigDirectory, relative));
+        var root = ConfigDirectory.EndsWith(Path.DirectorySeparatorChar) ? ConfigDirectory : ConfigDirectory + Path.DirectorySeparatorChar;
+        return full.StartsWith(root, StringComparison.Ordinal) ? full : null;
     }
 
     public void Validate()
@@ -204,9 +251,23 @@ public sealed class HealthConfig
         }
 
         ValidateContextRules(errors);
+        ValidateHowToFiles(errors);
 
         if (errors.Count > 0)
             throw new ConfigValidationException("Invalid health config:\n  " + string.Join("\n  ", errors));
+    }
+
+    // instructions_md must stay inside config/; a missing file is only a warning (the texts come later).
+    private void ValidateHowToFiles(List<string> errors)
+    {
+        if (ConfigDirectory is null) return;
+        foreach (var m in Metrics.Values)
+        {
+            if (m.InstructionsMd is not { } rel) { _warnings.Add($"metric '{m.Code}': no instructions_md (how-to screen will show a placeholder)"); continue; }
+            var path = ResolveInConfig(rel);
+            if (path is null) errors.Add($"metric '{m.Code}': instructions_md '{rel}' must be a path inside the config folder");
+            else if (!File.Exists(path)) _warnings.Add($"metric '{m.Code}': how-to file config/{rel} not found; the API serves a placeholder");
+        }
     }
 
     private static readonly HashSet<string> Ops = ["lt", "gt", "lte", "gte"];

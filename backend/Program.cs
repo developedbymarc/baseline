@@ -82,9 +82,7 @@ var app = builder.Build();
 var healthConfig = app.Services.GetRequiredService<HealthConfig>();
 app.Services.GetRequiredService<backend.Services.Packets.PacketTemplate>(); // fail fast on a broken packet template
 var configLogger = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("HealthConfig");
-configLogger.LogInformation("Loaded metrics.yaml v{Version}, {Metrics} metrics, protocols: {Protocols}",
-    healthConfig.MetricsVersion, healthConfig.Metrics.Count,
-    string.Join(", ", healthConfig.Protocols.Values.Select(p => $"{p.Id} v{p.Version}")));
+configLogger.LogInformation("{VersionLine}", healthConfig.VersionLine());
 foreach (var warning in healthConfig.Warnings)
     configLogger.LogWarning("Config warning: {Warning}", warning);
 using (var scope = app.Services.CreateScope())
