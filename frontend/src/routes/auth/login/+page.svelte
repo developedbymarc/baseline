@@ -6,11 +6,20 @@
     import { untrack } from 'svelte';
 	import { yupClient } from "sveltekit-superforms/adapters";
 	import { LoginSchema, type ILoginFormData } from "#lib/forms.ts";
+	import { userStore } from "#lib/stores.js";
+	import { redirect } from "@sveltejs/kit";
+	import { goto } from "$app/navigation";
 
     let { data } = $props();
     const { form, constraints, errors, enhance } = superForm<ILoginFormData>(untrack(() => data.form), {
       validators: yupClient(LoginSchema),
-      validationMethod: 'oninput'
+      validationMethod: 'oninput',
+      onUpdate({ form }) {
+        if(form.valid) {
+          $userStore.isLogged = true;
+          goto(resolve("/measurement"))
+        }
+      }
     });
 </script>
 

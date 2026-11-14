@@ -13,12 +13,11 @@
     </h1>
 
     <div class="flex gap-1-25 align-items-center">
-        <p class="clr-muted">|</p>
+        <!-- <p class="clr-muted">|</p> -->
 
-        <LinkButton href={resolve("/measurement")} class="button-outline button-flat">Measure</LinkButton>
 
         {#if $userStore.isLogged}
-            <p>Logged in</p>
+            <LinkButton href={resolve("/measurement")} class="button-outline button-flat">Measure</LinkButton>
         {:else}
             <LinkButton href={resolve("/auth/login")} class="button-outline button-flat">Log in</LinkButton>
         {/if}
