@@ -31,7 +31,7 @@ dotnet run -- reseed    # wipe baseline.db and reload the demo mission
 
 Vital signs are drawn around the middle of each metric's normal band from `config/metrics.yaml`. In-flight noise is 0.7 of the pre-flight spread so that ordinary noise stays mostly green. Alex's BP ramp is defined in SDs of his own locked baseline with lower noise (0.25 SD), so its green / yellow / red phases read clearly. Alerts and context factors for the seeded readings are precomputed with the real engines and reach ground through the link with the mission latency. Daily reminders are seeded on the crew side.
 
-Demo script tip: fast-forward (`POST /api/demo/clock {"fastForward": true}`), then switch back with `{"fastForward": false}` before step 5, or the 30-minute chest pain window and the 12-minute delay are over almost at once.
+Demo script: fast-forward with `POST /api/demo/clock {"fastForward": true}`. Before step 5 (chest pain), call `POST /api/demo/scene5`: it turns fast-forward off (real time, not paused), brings the link up with a 12-minute one-way latency, and returns the mission clock time (`missionNow`, `met`). Without it, the 30-minute chest pain window and the 12-minute delay are over almost at once at fast-forward speed.
 
 ## Test
 
@@ -39,7 +39,7 @@ Demo script tip: fast-forward (`POST /api/demo/clock {"fastForward": true}`), th
 dotnet test ../baseline.slnx
 ```
 
-Tests live in `../backend.Tests` (372 tests):
+Tests live in `../backend.Tests` (380 tests):
 
 | File | What it covers |
 |---|---|
@@ -49,7 +49,7 @@ Tests live in `../backend.Tests` (372 tests):
 | `ReportEngineTests`, `ReportApiTests` | Hand-computed Theil-Sen, Mann-Kendall, z forms, missed counts, highlights; reports over HTTP; 4 crew x 90 days in < 3 s |
 | `PacketTests` | SBAR packet content for a red BP and a chest pain run; one readable object |
 | `RolesTests` | Mock roles: crew own data only; ground reads only delivered data |
-| `DemoFlowTests` | Demo script steps 2-5 end to end |
+| `DemoFlowTests`, `Scene5Tests` | Demo script steps 2-5 end to end; the scene5 control and the chest pain window right after it |
 | `SeedTests` | Seed is deterministic, labelled synthetic, and the planted events give the expected statuses, trends and factors |
 | `HealthConfigTests`, `ConfigSchemaTests`, `ConfigCrossFileTests` | YAML loading, schema, cross-file references, how-to files, version line |
 | `ApiTests`, `ContextAndTriggerApiTests`, `DbContextTests` | End-to-end API flows; chest pain trigger window; baseline lock; SQLite date queries |

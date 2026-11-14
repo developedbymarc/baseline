@@ -11,7 +11,7 @@ decision support, not diagnosis.**
 | Base URL | `http://localhost:5074` (launch profile `http`, see `backend/Properties/launchSettings.json`) |
 | CORS | Browser calls are allowed from `http://localhost:5173` (Vite dev) and `http://localhost:4173` (Vite preview). Calls made from SvelteKit server code (`+page.server.ts`) are server-to-server and need no CORS. |
 | Format | JSON, camelCase property names |
-| IDs | GUID strings, e.g. `"bafabe8e-bf55-4448-a043-b54251d45ad7"` |
+| IDs | GUID strings, e.g. `"330fab86-44dc-4fd8-84f9-3b5d5b48cbc4"` |
 | Docs UI | `http://localhost:5074/scalar` (Development only) |
 | Offline | No internet needed. `dotnet run` seeds the demo mission if the DB is empty; `dotnet run -- reseed` resets it. |
 | Demo data | 4 synthetic crew, 14 pre-flight + 90 in-flight days. The clock starts at launch, so the in-flight history appears as you fast-forward (see `backend/README.md` for the planted events). |
@@ -33,7 +33,7 @@ On failure `success` is `false`, `data` is `null` and `error` explains why:
 | HTTP | `error.code` examples | Meaning |
 |---|---|---|
 | 400 | `VALIDATION_FAILURE` (with `details` per field), `UNKNOWN_METRIC`, `BAD_OUTCOME`, `NO_NODE`, `OUT_OF_RANGE`, `BAD_LATENCY`, `BAD_FORMAT` | Bad request |
-| 401 | `NO_ROLE`, `NO_bafabe8e-bf55-4448-a043-b54251d45ad7` | Missing or invalid mock-auth headers (see Roles) |
+| 401 | `NO_ROLE`, `NO_330fab86-44dc-4fd8-84f9-3b5d5b48cbc4` | Missing or invalid mock-auth headers (see Roles) |
 | 403 | `FORBIDDEN` | Another crew member's data, or a ground-only endpoint |
 | 404 | `NO_MISSION`, `NO_CREW`, `NO_ALERT`, `NO_PROTOCOL`, `NO_RUN` | Not found |
 | 409 | `ALREADY_INFLIGHT`, `RUN_ENDED`, `BASELINE_LOCKED` | Conflict with current state |
@@ -88,7 +88,7 @@ Set them once in a fetch wrapper. The login page becomes a role picker: choose g
 - symptoms and protocol steps: as `Symptom` / `ProtocolStep` messages in `GET /api/ground/inbox`
 - the overview grid uses only delivered readings
 
-Errors: missing or unknown `X-Role` → 401 `NO_ROLE`; crew without a valid `X-Crew-Id` → 401 `NO_bafabe8e-bf55-4448-a043-b54251d45ad7`; someone else's data or a ground-only endpoint → 403 `FORBIDDEN`.
+Errors: missing or unknown `X-Role` → 401 `NO_ROLE`; crew without a valid `X-Crew-Id` → 401 `NO_330fab86-44dc-4fd8-84f9-3b5d5b48cbc4`; someone else's data or a ground-only endpoint → 403 `FORBIDDEN`.
 
 ```json
 {
@@ -121,13 +121,13 @@ Ground reading a crew member's alerts after delivery (same shape as the crew vie
   "success": true,
   "data": [
     {
-      "id": "408e9c99-c3b6-4621-b458-d9c520791cd7",
-      "crewMemberId": "bafabe8e-bf55-4448-a043-b54251d45ad7",
-      "measurementId": "0afce35d-5e17-453d-921a-6a18b067b8cc",
+      "id": "caed9068-881c-426f-99eb-275bd651f93d",
+      "crewMemberId": "330fab86-44dc-4fd8-84f9-3b5d5b48cbc4",
+      "measurementId": "f856123b-693f-49f5-beb7-84546056532a",
       "level": "Red",
       "reason": "Resting heart rate 130 bpm: Above the critical limit of 120 bpm. +11.3 SD from your personal baseline (n=14).",
       "ruleId": "threshold+zscore",
-      "createdAt": "2026-11-14T06:05:01.2272898+00:00",
+      "createdAt": "2026-11-14T06:05:01.1863657+00:00",
       "acknowledgedBy": null,
       "context": {
         "originalLevel": "Red",
@@ -168,13 +168,13 @@ Role: any. Mission state, mission clock and link. `onboardFirst` is true when th
 {
   "success": true,
   "data": {
-    "id": "3c07ae02-8245-4066-b65b-ac3e59362428",
+    "id": "488ca043-618d-43d1-a5fd-5e73c911f77e",
     "name": "Demo Mars transit (SYNTHETIC DATA)",
     "environment": "Transit",
     "launchDate": "2026-11-14T06:00:00+00:00",
     "mode": "Inflight",
-    "missionNow": "2026-11-14T06:05:00.892757+00:00",
-    "metSeconds": 300.893,
+    "missionNow": "2026-11-14T06:05:00.8147378+00:00",
+    "metSeconds": 300.815,
     "met": "0d 00:05:00",
     "clockRate": 1,
     "clockPaused": false,
@@ -212,7 +212,7 @@ Role: open (presenter). Any combination of: `fastForward` (true = 1 mission day 
 { "advanceSeconds": 1814400 }
 ```
 
-**Demo tip:** at fast-forward speed 30 mission minutes pass in about 0.1 real seconds, so the chest pain window and the 12-minute link delay are over almost at once. Send `{ "fastForward": false }` after jumping 3 weeks and before demo step 5.
+**Demo tip:** at fast-forward speed 30 mission minutes pass in about 0.1 real seconds, so the chest pain window and the 12-minute link delay are over almost at once. Call `POST /api/demo/scene5` (below) before demo step 5.
 
 Error example (`rate: 0`):
 
@@ -236,6 +236,34 @@ Role: open (presenter). `up` toggles the link; `oneWayLatencySeconds` changes th
 ```
 ```json
 { "up": true, "oneWayLatencySeconds": 720 }
+```
+
+### POST /api/demo/scene5
+Role: open (presenter). One call to set up demo step 5 (chest pain) from any state: fast-forward **off** (real time, not paused), link **up**, one-way latency **12 minutes**. Messages held while the link was down leave now and arrive 12 minutes later. No body. Returns the mission state; read `missionNow` / `met` for the mission clock time to show on screen.
+
+From here, mission minutes equal real minutes, so a chest pain symptom and a red reading within 30 minutes offer the chest pain protocol, and a packet arrives on ground 12 minutes after it is sent.
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": "488ca043-618d-43d1-a5fd-5e73c911f77e",
+    "name": "Demo Mars transit (SYNTHETIC DATA)",
+    "environment": "Transit",
+    "launchDate": "2026-11-14T06:00:00+00:00",
+    "mode": "Inflight",
+    "missionNow": "2026-11-14T06:35:00.1964298+00:00",
+    "metSeconds": 2100.196,
+    "met": "0d 00:35:00",
+    "clockRate": 1,
+    "clockPaused": false,
+    "oneWayLatencySeconds": 720,
+    "linkUp": true,
+    "onboardFirst": true,
+    "onboardFirstThresholdSeconds": 300
+  },
+  "error": null
+}
 ```
 
 ### POST /api/demo/reseed
@@ -412,7 +440,7 @@ Role: crew (own entry), ground (all).
   "success": true,
   "data": [
     {
-      "id": "bafabe8e-bf55-4448-a043-b54251d45ad7",
+      "id": "330fab86-44dc-4fd8-84f9-3b5d5b48cbc4",
       "name": "Alex Rivera (synthetic)",
       "role": "Commander",
       "age": 45,
@@ -421,7 +449,7 @@ Role: crew (own entry), ground (all).
       "notes": "SYNTHETIC demo crew member. Planted: slow BP drift from mission day 8."
     },
     {
-      "id": "e9d658be-c215-4847-bd4e-ea66289f19da",
+      "id": "576ec6e9-5389-411b-af91-d6e3d82e0034",
       "name": "Jordan Lee (synthetic)",
       "role": "Mission specialist",
       "age": 41,
@@ -448,7 +476,7 @@ Role: crew (own), ground. `sd` is the personal SD; `sdEffective` is what z-score
       "sdEffective": 2.349,
       "shrunk": false,
       "n": 14,
-      "lockedAt": "2026-11-14T05:59:00.9582517+00:00",
+      "lockedAt": "2026-11-14T05:59:01.0208425+00:00",
       "warning": null
     },
     {
@@ -458,7 +486,7 @@ Role: crew (own), ground. `sd` is the personal SD; `sdEffective` is what z-score
       "sdEffective": 3.446,
       "shrunk": false,
       "n": 14,
-      "lockedAt": "2026-11-14T05:59:00.9582517+00:00",
+      "lockedAt": "2026-11-14T05:59:01.0208425+00:00",
       "warning": null
     }
   ],
@@ -474,7 +502,7 @@ Role: crew (own), ground (delivered only: pre-flight data and in-flight readings
   "success": true,
   "data": [
     {
-      "id": "3552c8fb-6391-40ff-9aca-80169f3258e1",
+      "id": "b6528b09-df4c-4986-8425-cb130d809ff6",
       "metricCode": "bp_sys",
       "value": 105,
       "recordedAt": "2026-11-07T08:10:00+00:00",
@@ -508,10 +536,10 @@ Optional fields: `confirmImplausible` (send `true` to save a value after a 422),
   "success": true,
   "data": {
     "measurement": {
-      "id": "01206ee7-55e8-4c2e-bebf-ee2186bea31d",
+      "id": "e4d0e311-985d-4e1e-a0cb-1afaac4f3ae5",
       "metricCode": "bp_sys",
       "value": 114.1,
-      "recordedAt": "2026-11-14T06:05:01.1603303+00:00",
+      "recordedAt": "2026-11-14T06:05:01.1133446+00:00",
       "qualityFlag": "Ok"
     },
     "status": {
@@ -553,7 +581,7 @@ Optional fields: `confirmImplausible` (send `true` to save a value after a 422),
         }
       ]
     },
-    "alertId": "61adaa46-4156-409a-a413-0fb19c3fb6b9",
+    "alertId": "239d2c8a-ee61-43c0-8e5c-a1858c290e14",
     "protocolId": null,
     "protocol": null,
     "packetDraft": null
@@ -567,10 +595,10 @@ Optional fields: `confirmImplausible` (send `true` to save a value after a 422),
 ```json
 {
   "measurement": {
-    "id": "5cd0b61b-4ca1-419e-93af-559caa0a3463",
+    "id": "7cb6f5ad-90a4-4ca6-a83e-dd1491b01f8c",
     "metricCode": "bp_sys",
     "value": 117.5,
-    "recordedAt": "2026-11-15T06:37:47.663585+00:00",
+    "recordedAt": "2026-11-15T06:35:00.2763392+00:00",
     "qualityFlag": "Ok"
   },
   "status": {
@@ -618,7 +646,7 @@ Optional fields: `confirmImplausible` (send `true` to save a value after a 422),
       }
     ]
   },
-  "alertId": "63a98277-e7c3-41a5-bfb7-79002a69c7b3",
+  "alertId": "b3a43b37-d86a-452d-9c66-7473914f7fd9",
   "protocolId": null,
   "protocol": null,
   "packetDraft": null
@@ -630,13 +658,13 @@ The stored alert carries the same object as `context`:
 ```json
 [
   {
-    "id": "63a98277-e7c3-41a5-bfb7-79002a69c7b3",
-    "crewMemberId": "e9d658be-c215-4847-bd4e-ea66289f19da",
-    "measurementId": "5cd0b61b-4ca1-419e-93af-559caa0a3463",
+    "id": "b3a43b37-d86a-452d-9c66-7473914f7fd9",
+    "crewMemberId": "576ec6e9-5389-411b-af91-d6e3d82e0034",
+    "measurementId": "7cb6f5ad-90a4-4ca6-a83e-dd1491b01f8c",
     "level": "Yellow",
     "reason": "Systolic blood pressure 117.5 mmHg: +2.0 SD from your personal baseline (n=14).",
     "ruleId": "zscore",
-    "createdAt": "2026-11-15T06:37:47.663585+00:00",
+    "createdAt": "2026-11-15T06:35:00.2763392+00:00",
     "acknowledgedBy": null,
     "context": {
       "originalLevel": "Yellow",
@@ -669,10 +697,10 @@ The stored alert carries the same object as `context`:
 ```json
 {
   "measurement": {
-    "id": "0afce35d-5e17-453d-921a-6a18b067b8cc",
+    "id": "f856123b-693f-49f5-beb7-84546056532a",
     "metricCode": "hr_rest",
     "value": 130,
-    "recordedAt": "2026-11-14T06:05:01.2272898+00:00",
+    "recordedAt": "2026-11-14T06:05:01.1863657+00:00",
     "qualityFlag": "Ok"
   },
   "status": {
@@ -708,13 +736,13 @@ The stored alert carries the same object as `context`:
       }
     ]
   },
-  "alertId": "408e9c99-c3b6-4621-b458-d9c520791cd7",
+  "alertId": "caed9068-881c-426f-99eb-275bd651f93d",
   "protocolId": "chest_pain",
   "protocol": {
     "protocolId": "chest_pain",
     "matchedBy": "red_reading+symptom",
     "matchedSymptomLogIds": [
-      "2d29a206-acc0-4624-8e35-128f0711afbe"
+      "5aeaafa5-bca3-44af-92bb-89668dee3d00"
     ],
     "matchedRedAlertIds": []
   },
@@ -765,7 +793,7 @@ Role: crew (own) only. Due and overdue reminders from the crew-side schedule (wo
   "success": true,
   "data": [
     {
-      "id": "f6785606-ffda-4239-b43c-dacf39ae3707",
+      "id": "e43dc776-7c49-4a85-afb9-40adc7b7d621",
       "metricCode": "sleep_h",
       "dueAt": "2026-11-14T07:00:00+00:00",
       "dueMet": 3600,
@@ -775,8 +803,8 @@ Role: crew (own) only. Due and overdue reminders from the crew-side schedule (wo
       "completedAt": null
     },
     {
-      "id": "7995cc8f-f2b1-4631-8774-182d56fa326d",
-      "metricCode": "bp_dia",
+      "id": "7334c000-a027-4fa2-ad5a-929dd2584c4a",
+      "metricCode": "spo2",
       "dueAt": "2026-11-14T08:00:00+00:00",
       "dueMet": 7200,
       "status": "Pending",
@@ -797,13 +825,13 @@ Role: crew (own), ground (delivered only, see Roles). Newest first. `context` is
   "success": true,
   "data": [
     {
-      "id": "408e9c99-c3b6-4621-b458-d9c520791cd7",
-      "crewMemberId": "bafabe8e-bf55-4448-a043-b54251d45ad7",
-      "measurementId": "0afce35d-5e17-453d-921a-6a18b067b8cc",
+      "id": "caed9068-881c-426f-99eb-275bd651f93d",
+      "crewMemberId": "330fab86-44dc-4fd8-84f9-3b5d5b48cbc4",
+      "measurementId": "f856123b-693f-49f5-beb7-84546056532a",
       "level": "Red",
       "reason": "Resting heart rate 130 bpm: Above the critical limit of 120 bpm. +11.3 SD from your personal baseline (n=14).",
       "ruleId": "threshold+zscore",
-      "createdAt": "2026-11-14T06:05:01.2272898+00:00",
+      "createdAt": "2026-11-14T06:05:01.1863657+00:00",
       "acknowledgedBy": null,
       "context": {
         "originalLevel": "Red",
@@ -835,13 +863,13 @@ Role: crew (own), ground (delivered only, see Roles). Newest first. `context` is
       }
     },
     {
-      "id": "40d61179-79dd-494e-aa37-0e47ac3bdacc",
-      "crewMemberId": "bafabe8e-bf55-4448-a043-b54251d45ad7",
+      "id": "1cb1fa53-9ca0-4872-b2be-515e30f8cf7a",
+      "crewMemberId": "330fab86-44dc-4fd8-84f9-3b5d5b48cbc4",
       "measurementId": null,
       "level": "Red",
       "reason": "Symptom reported: Chest pain / suspected cardiac event.",
       "ruleId": "symptom",
-      "createdAt": "2026-11-14T06:05:01.1958707+00:00",
+      "createdAt": "2026-11-14T06:05:01.1504001+00:00",
       "acknowledgedBy": null,
       "context": null
     }
@@ -864,14 +892,14 @@ Role: crew (own). A symptom listed in a protocol's `trigger.symptoms` (today: `c
 {
   "success": true,
   "data": {
-    "symptomLogId": "2d29a206-acc0-4624-8e35-128f0711afbe",
-    "alertId": "40d61179-79dd-494e-aa37-0e47ac3bdacc",
+    "symptomLogId": "5aeaafa5-bca3-44af-92bb-89668dee3d00",
+    "alertId": "1cb1fa53-9ca0-4872-b2be-515e30f8cf7a",
     "protocolId": "chest_pain",
     "protocol": {
       "protocolId": "chest_pain",
       "matchedBy": "symptom",
       "matchedSymptomLogIds": [
-        "2d29a206-acc0-4624-8e35-128f0711afbe"
+        "5aeaafa5-bca3-44af-92bb-89668dee3d00"
       ],
       "matchedRedAlertIds": []
     }
@@ -886,7 +914,7 @@ Role: crew (own). Starts a run of a protocol; `protocolVersion` is stored so gro
 ```json
 {
   "protocolId": "chest_pain",
-  "alertId": "408e9c99-c3b6-4621-b458-d9c520791cd7"
+  "alertId": "caed9068-881c-426f-99eb-275bd651f93d"
 }
 ```
 
@@ -894,12 +922,12 @@ Role: crew (own). Starts a run of a protocol; `protocolVersion` is stored so gro
 {
   "success": true,
   "data": {
-    "id": "94ba3b71-d878-4ada-9deb-5dbea6439a4e",
-    "crewMemberId": "bafabe8e-bf55-4448-a043-b54251d45ad7",
+    "id": "debb3743-5f9e-4356-8921-2d8f54e961c5",
+    "crewMemberId": "330fab86-44dc-4fd8-84f9-3b5d5b48cbc4",
     "protocolId": "chest_pain",
     "protocolVersion": "0.3",
-    "alertId": "408e9c99-c3b6-4621-b458-d9c520791cd7",
-    "startedAt": "2026-11-14T06:05:01.4280796+00:00",
+    "alertId": "caed9068-881c-426f-99eb-275bd651f93d",
+    "startedAt": "2026-11-14T06:05:01.4040836+00:00",
     "endedAt": null,
     "steps": [],
     "packetDraft": "(SBAR packet object, see 'SBAR handoff packet')"
@@ -922,18 +950,18 @@ Role: crew (owner of the run). Logs one step with its mission time (story F3). `
 {
   "success": true,
   "data": {
-    "id": "94ba3b71-d878-4ada-9deb-5dbea6439a4e",
-    "crewMemberId": "bafabe8e-bf55-4448-a043-b54251d45ad7",
+    "id": "debb3743-5f9e-4356-8921-2d8f54e961c5",
+    "crewMemberId": "330fab86-44dc-4fd8-84f9-3b5d5b48cbc4",
     "protocolId": "chest_pain",
     "protocolVersion": "0.3",
-    "alertId": "408e9c99-c3b6-4621-b458-d9c520791cd7",
-    "startedAt": "2026-11-14T06:05:01.4280796+00:00",
+    "alertId": "caed9068-881c-426f-99eb-275bd651f93d",
+    "startedAt": "2026-11-14T06:05:01.4040836+00:00",
     "endedAt": null,
     "steps": [
       {
         "nodeId": "n_start",
         "answer": "No",
-        "at": "2026-11-14T06:05:01.4948607+00:00"
+        "at": "2026-11-14T06:05:01.4724098+00:00"
       }
     ],
     "packetDraft": null
@@ -995,8 +1023,8 @@ Role: crew (own). At least one of `alertId` or `runId`; with only `runId`, the r
 
 ```json
 {
-  "alertId": "408e9c99-c3b6-4621-b458-d9c520791cd7",
-  "runId": "94ba3b71-d878-4ada-9deb-5dbea6439a4e",
+  "alertId": "caed9068-881c-426f-99eb-275bd651f93d",
+  "runId": "debb3743-5f9e-4356-8921-2d8f54e961c5",
   "note": "felt dizzy"
 }
 ```
@@ -1009,26 +1037,26 @@ Response: the queued link message (packet payload trimmed):
 {
   "success": true,
   "data": {
-    "id": "bc18ec05-3172-4d1d-9844-fe125245ed25",
+    "id": "d1fee45c-75fc-4196-9157-754c0a1d298c",
     "direction": "CrewToGround",
     "type": "Packet",
-    "alertId": "408e9c99-c3b6-4621-b458-d9c520791cd7",
+    "alertId": "caed9068-881c-426f-99eb-275bd651f93d",
     "state": "in_flight",
-    "sentAt": "2026-11-14T06:05:01.5375677+00:00",
-    "deliverAt": "2026-11-14T06:17:01.5375677+00:00",
+    "sentAt": "2026-11-14T06:05:01.5196759+00:00",
+    "deliverAt": "2026-11-14T06:17:01.5196759+00:00",
     "deliveredAt": null,
     "ageSeconds": 0.013,
     "ageOfData": "Written just now (mission time)",
     "secondsUntilDelivery": 719.987,
     "payload": {
       "schema": "baseline.sbar.v1",
-      "createdAt": "2026-11-14T06:05:01.5375677+00:00",
+      "createdAt": "2026-11-14T06:05:01.5196759+00:00",
       "createdMet": "0d 00:05:01",
       "createdUtc": "2026-11-14 06:05 UTC",
-      "crewMemberId": "bafabe8e-bf55-4448-a043-b54251d45ad7",
+      "crewMemberId": "330fab86-44dc-4fd8-84f9-3b5d5b48cbc4",
       "crewName": "Alex Rivera (synthetic)",
-      "alertId": "408e9c99-c3b6-4621-b458-d9c520791cd7",
-      "runId": "94ba3b71-d878-4ada-9deb-5dbea6439a4e",
+      "alertId": "caed9068-881c-426f-99eb-275bd651f93d",
+      "runId": "debb3743-5f9e-4356-8921-2d8f54e961c5",
       "note": "felt dizzy",
       "data": {
         "mission": {
@@ -1041,7 +1069,7 @@ Response: the queued link message (packet payload trimmed):
           "inAdaptationWindow": true
         },
         "crew": {
-          "id": "bafabe8e-bf55-4448-a043-b54251d45ad7",
+          "id": "330fab86-44dc-4fd8-84f9-3b5d5b48cbc4",
           "name": "Alex Rivera (synthetic)",
           "role": "Commander",
           "age": 45,
@@ -1051,11 +1079,11 @@ Response: the queued link message (packet payload trimmed):
           "kind": "red_reading",
           "summary": "Red Resting heart rate 130 bpm at 0d 00:05:01 MET.",
           "alert": {
-            "id": "408e9c99-c3b6-4621-b458-d9c520791cd7",
+            "id": "caed9068-881c-426f-99eb-275bd651f93d",
             "level": "Red",
             "reason": "Resting heart rate 130 bpm: Above the critical limit of 120 bpm. +11.3 SD from your personal baseline (n=14).",
             "ruleId": "threshold+zscore",
-            "at": "2026-11-14T06:05:01.2272898+00:00",
+            "at": "2026-11-14T06:05:01.1863657+00:00",
             "atMet": "0d 00:05:01",
             "metricCode": "hr_rest",
             "metricName": "Resting heart rate",
@@ -1064,10 +1092,10 @@ Response: the queued link message (packet payload trimmed):
           },
           "symptoms": [
             {
-              "id": "2d29a206-acc0-4624-8e35-128f0711afbe",
+              "id": "5aeaafa5-bca3-44af-92bb-89668dee3d00",
               "symptomCode": "chest_pain",
               "note": "pressure behind sternum",
-              "loggedAt": "2026-11-14T06:05:01.1958707+00:00",
+              "loggedAt": "2026-11-14T06:05:01.1504001+00:00",
               "loggedMet": "0d 00:05:01"
             }
           ]
@@ -1094,17 +1122,17 @@ Response: the queued link message (packet payload trimmed):
             "n": 14,
             "shrunk": false,
             "latestValue": 130,
-            "latestAt": "2026-11-14T06:05:01.2272898+00:00",
+            "latestAt": "2026-11-14T06:05:01.1863657+00:00",
             "latestZ": 11.29,
             "summary": "Resting heart rate: baseline 82.6 bpm, SD 4.2, n=14; latest 130 bpm (+11.3 SD)"
           }
         ],
         "protocol": {
-          "runId": "94ba3b71-d878-4ada-9deb-5dbea6439a4e",
+          "runId": "debb3743-5f9e-4356-8921-2d8f54e961c5",
           "protocolId": "chest_pain",
           "title": "Chest pain / suspected cardiac event",
           "version": "0.3",
-          "startedAt": "2026-11-14T06:05:01.4280796+00:00",
+          "startedAt": "2026-11-14T06:05:01.4040836+00:00",
           "startedMet": "0d 00:05:01",
           "endedAt": null,
           "steps": [
@@ -1112,7 +1140,7 @@ Response: the queued link message (packet payload trimmed):
               "nodeId": "n_start",
               "text": "Is the crew member unresponsive or not breathing normally?",
               "answer": "No",
-              "at": "2026-11-14T06:05:01.4948607+00:00",
+              "at": "2026-11-14T06:05:01.4724098+00:00",
               "atMet": "0d 00:05:01"
             }
           ]
@@ -1246,26 +1274,26 @@ Role: open (presenter view). Every message in every state, newest first, so the 
   "success": true,
   "data": [
     {
-      "id": "bc18ec05-3172-4d1d-9844-fe125245ed25",
+      "id": "d1fee45c-75fc-4196-9157-754c0a1d298c",
       "direction": "CrewToGround",
       "type": "Packet",
-      "alertId": "408e9c99-c3b6-4621-b458-d9c520791cd7",
+      "alertId": "caed9068-881c-426f-99eb-275bd651f93d",
       "state": "in_flight",
-      "sentAt": "2026-11-14T06:05:01.5375677+00:00",
-      "deliverAt": "2026-11-14T06:17:01.5375677+00:00",
+      "sentAt": "2026-11-14T06:05:01.5196759+00:00",
+      "deliverAt": "2026-11-14T06:17:01.5196759+00:00",
       "deliveredAt": null,
-      "ageSeconds": 0.044,
+      "ageSeconds": 0.047,
       "ageOfData": "Written just now (mission time)",
-      "secondsUntilDelivery": 719.956,
+      "secondsUntilDelivery": 719.953,
       "payload": {
         "schema": "baseline.sbar.v1",
-        "createdAt": "2026-11-14T06:05:01.5375677+00:00",
+        "createdAt": "2026-11-14T06:05:01.5196759+00:00",
         "createdMet": "0d 00:05:01",
         "createdUtc": "2026-11-14 06:05 UTC",
-        "crewMemberId": "bafabe8e-bf55-4448-a043-b54251d45ad7",
+        "crewMemberId": "330fab86-44dc-4fd8-84f9-3b5d5b48cbc4",
         "crewName": "Alex Rivera (synthetic)",
-        "alertId": "408e9c99-c3b6-4621-b458-d9c520791cd7",
-        "runId": "94ba3b71-d878-4ada-9deb-5dbea6439a4e",
+        "alertId": "caed9068-881c-426f-99eb-275bd651f93d",
+        "runId": "debb3743-5f9e-4356-8921-2d8f54e961c5",
         "note": "felt dizzy",
         "data": {
           "mission": {
@@ -1278,7 +1306,7 @@ Role: open (presenter view). Every message in every state, newest first, so the 
             "inAdaptationWindow": true
           },
           "crew": {
-            "id": "bafabe8e-bf55-4448-a043-b54251d45ad7",
+            "id": "330fab86-44dc-4fd8-84f9-3b5d5b48cbc4",
             "name": "Alex Rivera (synthetic)",
             "role": "Commander",
             "age": 45,
@@ -1288,11 +1316,11 @@ Role: open (presenter view). Every message in every state, newest first, so the 
             "kind": "red_reading",
             "summary": "Red Resting heart rate 130 bpm at 0d 00:05:01 MET.",
             "alert": {
-              "id": "408e9c99-c3b6-4621-b458-d9c520791cd7",
+              "id": "caed9068-881c-426f-99eb-275bd651f93d",
               "level": "Red",
               "reason": "Resting heart rate 130 bpm: Above the critical limit of 120 bpm. +11.3 SD from your personal baseline (n=14).",
               "ruleId": "threshold+zscore",
-              "at": "2026-11-14T06:05:01.2272898+00:00",
+              "at": "2026-11-14T06:05:01.1863657+00:00",
               "atMet": "0d 00:05:01",
               "metricCode": "hr_rest",
               "metricName": "Resting heart rate",
@@ -1301,10 +1329,10 @@ Role: open (presenter view). Every message in every state, newest first, so the 
             },
             "symptoms": [
               {
-                "id": "2d29a206-acc0-4624-8e35-128f0711afbe",
+                "id": "5aeaafa5-bca3-44af-92bb-89668dee3d00",
                 "symptomCode": "chest_pain",
                 "note": "pressure behind sternum",
-                "loggedAt": "2026-11-14T06:05:01.1958707+00:00",
+                "loggedAt": "2026-11-14T06:05:01.1504001+00:00",
                 "loggedMet": "0d 00:05:01"
               }
             ]
@@ -1331,17 +1359,17 @@ Role: open (presenter view). Every message in every state, newest first, so the 
               "n": 14,
               "shrunk": false,
               "latestValue": 130,
-              "latestAt": "2026-11-14T06:05:01.2272898+00:00",
+              "latestAt": "2026-11-14T06:05:01.1863657+00:00",
               "latestZ": 11.29,
               "summary": "Resting heart rate: baseline 82.6 bpm, SD 4.2, n=14; latest 130 bpm (+11.3 SD)"
             }
           ],
           "protocol": {
-            "runId": "94ba3b71-d878-4ada-9deb-5dbea6439a4e",
+            "runId": "debb3743-5f9e-4356-8921-2d8f54e961c5",
             "protocolId": "chest_pain",
             "title": "Chest pain / suspected cardiac event",
             "version": "0.3",
-            "startedAt": "2026-11-14T06:05:01.4280796+00:00",
+            "startedAt": "2026-11-14T06:05:01.4040836+00:00",
             "startedMet": "0d 00:05:01",
             "endedAt": null,
             "steps": [
@@ -1349,7 +1377,7 @@ Role: open (presenter view). Every message in every state, newest first, so the 
                 "nodeId": "n_start",
                 "text": "Is the crew member unresponsive or not breathing normally?",
                 "answer": "No",
-                "at": "2026-11-14T06:05:01.4948607+00:00",
+                "at": "2026-11-14T06:05:01.4724098+00:00",
                 "atMet": "0d 00:05:01"
               }
             ]
@@ -1405,26 +1433,26 @@ Role: ground. Only messages that have **arrived** through the link, newest first
   "success": true,
   "data": [
     {
-      "id": "bc18ec05-3172-4d1d-9844-fe125245ed25",
+      "id": "d1fee45c-75fc-4196-9157-754c0a1d298c",
       "direction": "CrewToGround",
       "type": "Packet",
-      "alertId": "408e9c99-c3b6-4621-b458-d9c520791cd7",
+      "alertId": "caed9068-881c-426f-99eb-275bd651f93d",
       "state": "delivered",
-      "sentAt": "2026-11-14T06:05:01.5375677+00:00",
-      "deliverAt": "2026-11-14T06:17:01.5375677+00:00",
-      "deliveredAt": "2026-11-14T06:17:01.5375677+00:00",
-      "ageSeconds": 1621.131,
+      "sentAt": "2026-11-14T06:05:01.5196759+00:00",
+      "deliverAt": "2026-11-14T06:17:01.5196759+00:00",
+      "deliveredAt": "2026-11-14T06:17:01.5196759+00:00",
+      "ageSeconds": 1621.139,
       "ageOfData": "Written 27 min ago (mission time)",
       "secondsUntilDelivery": null,
       "payload": {
         "schema": "baseline.sbar.v1",
-        "createdAt": "2026-11-14T06:05:01.5375677+00:00",
+        "createdAt": "2026-11-14T06:05:01.5196759+00:00",
         "createdMet": "0d 00:05:01",
         "createdUtc": "2026-11-14 06:05 UTC",
-        "crewMemberId": "bafabe8e-bf55-4448-a043-b54251d45ad7",
+        "crewMemberId": "330fab86-44dc-4fd8-84f9-3b5d5b48cbc4",
         "crewName": "Alex Rivera (synthetic)",
-        "alertId": "408e9c99-c3b6-4621-b458-d9c520791cd7",
-        "runId": "94ba3b71-d878-4ada-9deb-5dbea6439a4e",
+        "alertId": "caed9068-881c-426f-99eb-275bd651f93d",
+        "runId": "debb3743-5f9e-4356-8921-2d8f54e961c5",
         "note": "felt dizzy",
         "data": {
           "mission": {
@@ -1437,7 +1465,7 @@ Role: ground. Only messages that have **arrived** through the link, newest first
             "inAdaptationWindow": true
           },
           "crew": {
-            "id": "bafabe8e-bf55-4448-a043-b54251d45ad7",
+            "id": "330fab86-44dc-4fd8-84f9-3b5d5b48cbc4",
             "name": "Alex Rivera (synthetic)",
             "role": "Commander",
             "age": 45,
@@ -1447,11 +1475,11 @@ Role: ground. Only messages that have **arrived** through the link, newest first
             "kind": "red_reading",
             "summary": "Red Resting heart rate 130 bpm at 0d 00:05:01 MET.",
             "alert": {
-              "id": "408e9c99-c3b6-4621-b458-d9c520791cd7",
+              "id": "caed9068-881c-426f-99eb-275bd651f93d",
               "level": "Red",
               "reason": "Resting heart rate 130 bpm: Above the critical limit of 120 bpm. +11.3 SD from your personal baseline (n=14).",
               "ruleId": "threshold+zscore",
-              "at": "2026-11-14T06:05:01.2272898+00:00",
+              "at": "2026-11-14T06:05:01.1863657+00:00",
               "atMet": "0d 00:05:01",
               "metricCode": "hr_rest",
               "metricName": "Resting heart rate",
@@ -1460,10 +1488,10 @@ Role: ground. Only messages that have **arrived** through the link, newest first
             },
             "symptoms": [
               {
-                "id": "2d29a206-acc0-4624-8e35-128f0711afbe",
+                "id": "5aeaafa5-bca3-44af-92bb-89668dee3d00",
                 "symptomCode": "chest_pain",
                 "note": "pressure behind sternum",
-                "loggedAt": "2026-11-14T06:05:01.1958707+00:00",
+                "loggedAt": "2026-11-14T06:05:01.1504001+00:00",
                 "loggedMet": "0d 00:05:01"
               }
             ]
@@ -1490,17 +1518,17 @@ Role: ground. Only messages that have **arrived** through the link, newest first
               "n": 14,
               "shrunk": false,
               "latestValue": 130,
-              "latestAt": "2026-11-14T06:05:01.2272898+00:00",
+              "latestAt": "2026-11-14T06:05:01.1863657+00:00",
               "latestZ": 11.29,
               "summary": "Resting heart rate: baseline 82.6 bpm, SD 4.2, n=14; latest 130 bpm (+11.3 SD)"
             }
           ],
           "protocol": {
-            "runId": "94ba3b71-d878-4ada-9deb-5dbea6439a4e",
+            "runId": "debb3743-5f9e-4356-8921-2d8f54e961c5",
             "protocolId": "chest_pain",
             "title": "Chest pain / suspected cardiac event",
             "version": "0.3",
-            "startedAt": "2026-11-14T06:05:01.4280796+00:00",
+            "startedAt": "2026-11-14T06:05:01.4040836+00:00",
             "startedMet": "0d 00:05:01",
             "endedAt": null,
             "steps": [
@@ -1508,7 +1536,7 @@ Role: ground. Only messages that have **arrived** through the link, newest first
                 "nodeId": "n_start",
                 "text": "Is the crew member unresponsive or not breathing normally?",
                 "answer": "No",
-                "at": "2026-11-14T06:05:01.4948607+00:00",
+                "at": "2026-11-14T06:05:01.4724098+00:00",
                 "atMet": "0d 00:05:01"
               }
             ]
@@ -1560,14 +1588,14 @@ Role: ground. Crew x metrics grid (story D2) with the latest **delivered** in-fl
   "success": true,
   "data": [
     {
-      "crewMemberId": "bafabe8e-bf55-4448-a043-b54251d45ad7",
+      "crewMemberId": "330fab86-44dc-4fd8-84f9-3b5d5b48cbc4",
       "name": "Alex Rivera (synthetic)",
       "role": "Commander",
       "cells": [
         {
           "metricCode": "hr_rest",
           "value": 130,
-          "recordedAt": "2026-11-14T06:05:01.2272898+00:00",
+          "recordedAt": "2026-11-14T06:05:01.1863657+00:00",
           "status": {
             "level": "Red",
             "absoluteLevel": "Red",
@@ -1662,8 +1690,8 @@ Example (member, current biweekly period, rows trimmed):
     "endDay": 14,
     "complete": false,
     "view": "crew",
-    "dataAsOf": "2026-11-15T06:37:47.7101647+00:00",
-    "dataAsOfMet": "1d 00:37:47",
+    "dataAsOf": "2026-11-15T06:35:00.3255381+00:00",
+    "dataAsOfMet": "1d 00:35:00",
     "adaptationWindow": {
       "days": 14,
       "overlaps": true,
@@ -1677,7 +1705,7 @@ Example (member, current biweekly period, rows trimmed):
     },
     "members": [
       {
-        "crewMemberId": "bafabe8e-bf55-4448-a043-b54251d45ad7",
+        "crewMemberId": "330fab86-44dc-4fd8-84f9-3b5d5b48cbc4",
         "name": "Alex Rivera (synthetic)",
         "role": "Commander",
         "rows": [
@@ -1695,8 +1723,8 @@ Example (member, current biweekly period, rows trimmed):
             "delta": 25.929,
             "zSd": 6.172,
             "zShift": 8.729,
-            "trendSlopePerDay": -516.088,
-            "trendChangeOverWindow": -7225.232,
+            "trendSlopePerDay": -516.085,
+            "trendChangeOverWindow": -7225.191,
             "trendPValue": null,
             "trend": "insufficient",
             "missed": 0,
@@ -1708,17 +1736,17 @@ Example (member, current biweekly period, rows trimmed):
             "metricName": "Systolic blood pressure",
             "unit": "mmHg",
             "windowN": 3,
-            "windowMean": 108.367,
+            "windowMean": 109.033,
             "baselineMean": 107.214,
             "baselineN": 14,
             "sdEffective": 3.446,
             "baselineShrunk": false,
             "baselineSource": "locked",
-            "delta": 1.152,
-            "zSd": 0.334,
-            "zShift": 0.579,
-            "trendSlopePerDay": -34.565,
-            "trendChangeOverWindow": -483.911,
+            "delta": 1.819,
+            "zSd": 0.528,
+            "zShift": 0.914,
+            "trendSlopePerDay": -11.522,
+            "trendChangeOverWindow": -161.302,
             "trendPValue": 1.0,
             "trend": "stable",
             "missed": 0,
@@ -1769,8 +1797,8 @@ Example (whole crew, monthly, ground view, trimmed):
   "endDay": 30,
   "complete": false,
   "view": "ground",
-  "dataAsOf": "2026-11-15T06:37:47.7813469+00:00",
-  "dataAsOfMet": "1d 00:37:47",
+  "dataAsOf": "2026-11-15T06:35:00.3979514+00:00",
+  "dataAsOfMet": "1d 00:35:00",
   "adaptationWindow": {
     "days": 14,
     "overlaps": true,
@@ -1784,7 +1812,7 @@ Example (whole crew, monthly, ground view, trimmed):
   },
   "members": [
     {
-      "crewMemberId": "bafabe8e-bf55-4448-a043-b54251d45ad7",
+      "crewMemberId": "330fab86-44dc-4fd8-84f9-3b5d5b48cbc4",
       "name": "Alex Rivera (synthetic)",
       "role": "Commander",
       "rows": [
@@ -1802,8 +1830,8 @@ Example (whole crew, monthly, ground view, trimmed):
           "delta": 25.929,
           "zSd": 6.172,
           "zShift": 8.729,
-          "trendSlopePerDay": -516.088,
-          "trendChangeOverWindow": -15482.639,
+          "trendSlopePerDay": -516.085,
+          "trendChangeOverWindow": -15482.551,
           "trendPValue": null,
           "trend": "insufficient",
           "missed": 0,
@@ -1830,7 +1858,7 @@ Example (whole crew, monthly, ground view, trimmed):
     "withoutContextFactors": 2,
     "symptomAlerts": 1,
     "unexplainedAlertIds": [
-      "b646c646-40c5-4ee6-b91e-1d0a9be727f1"
+      "e2672f32-6c02-4d3d-a587-60caab371a67"
     ]
   },
   "highlights": [

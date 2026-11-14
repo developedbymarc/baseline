@@ -42,6 +42,24 @@ public sealed class DemoController(
         return ApiResponse<MissionStateDto>.Succeeded(MissionStateDto.From(m, missions.Now(m), OnboardFirstThreshold));
     }
 
+    // Demo script step 5 (chest pain): fast-forward off (real time, not paused), link up, 12 min one-way latency.
+    // Returns the mission state with the mission clock time to read out. Messages held while the link was down
+    // leave now and arrive after the 12 minutes.
+    public const double Scene5LatencySeconds = 12 * 60;
+
+    [HttpPost("scene5")]
+    public async Task<ApiResponse<MissionStateDto>> Scene5(CancellationToken ct)
+    {
+        var m = await missions.CurrentAsync(ct);
+        var real = clock.RealNow;
+        MissionClock.SetRate(m, 1.0, real);
+        MissionClock.SetPaused(m, false, real);
+        await db.SaveChangesAsync(ct);
+        await missions.SetLinkAsync(m, up: true, latencySeconds: Scene5LatencySeconds, ct);
+        await missions.DeliverDueAsync(m, ct);
+        return ApiResponse<MissionStateDto>.Succeeded(MissionStateDto.From(m, missions.Now(m), OnboardFirstThreshold));
+    }
+
     // Wipes the SQLite file and reloads the synthetic demo mission.
     [HttpPost("reseed")]
     public async Task<ApiResponse> Reseed(CancellationToken ct)
