@@ -370,6 +370,8 @@ public sealed class MissionService(ApplicationDbContext db, HealthConfig config,
         db.Alerts.Where(a => db.LinkMessages.Any(m => m.AlertId == a.Id && m.Type == LinkMessageType.Alert && m.DeliveredAt != null));
 
     // ---------- Protocol runs (F3): every event is synced to ground ----------
+    // ProtocolStep payloads always have the same keys:
+    // runId, crewMemberId, protocolId, protocolVersion, event (started | step | ended), nodeId, answer, outcome, at.
 
     public async Task<ProtocolRun> StartProtocolAsync(Guid crewId, string protocolId, Guid? alertId, CancellationToken ct = default)
     {
@@ -389,8 +391,9 @@ public sealed class MissionService(ApplicationDbContext db, HealthConfig config,
         db.ProtocolRuns.Add(run);
         QueueSync(mission, now, LinkMessageType.ProtocolStep, new
         {
-            runId = run.Id, crewMemberId = crew.Id, crewName = crew.Name, protocolId = protocol.Id,
-            protocolVersion = protocol.Version, @event = "started", at = now,
+            runId = run.Id, crewMemberId = crew.Id, protocolId = protocol.Id,
+            protocolVersion = protocol.Version, @event = "started", nodeId = (string?)null, answer = (string?)null,
+            outcome = (string?)null, at = now,
         }, alertId);
         await db.SaveChangesAsync(ct);
         return run;
@@ -415,7 +418,7 @@ public sealed class MissionService(ApplicationDbContext db, HealthConfig config,
         QueueSync(mission, now, LinkMessageType.ProtocolStep, new
         {
             runId = run.Id, crewMemberId = run.CrewMemberId, protocolId = run.ProtocolId,
-            protocolVersion = run.ProtocolVersion, @event = "step", nodeId, answer, at = now,
+            protocolVersion = run.ProtocolVersion, @event = "step", nodeId, answer, outcome = (string?)null, at = now,
         }, run.AlertId);
         await db.SaveChangesAsync(ct);
         return run;
@@ -435,7 +438,8 @@ public sealed class MissionService(ApplicationDbContext db, HealthConfig config,
         QueueSync(mission, now, LinkMessageType.ProtocolStep, new
         {
             runId = run.Id, crewMemberId = run.CrewMemberId, protocolId = run.ProtocolId,
-            protocolVersion = run.ProtocolVersion, @event = "ended", outcome, at = now,
+            protocolVersion = run.ProtocolVersion, @event = "ended", nodeId = (string?)null, answer = (string?)null,
+            outcome, at = now,
         }, run.AlertId);
         await db.SaveChangesAsync(ct);
         return run;
