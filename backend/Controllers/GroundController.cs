@@ -46,7 +46,7 @@ public sealed class GroundController(MissionService missions, ApplicationDbConte
             {
                 var latest = await db.Measurements
                     .Where(x => x.CrewMemberId == c.Id && x.MetricCode == metric.Code
-                                && x.Source == HealthMeasurementSource.InFlight && x.RecordedAt <= now)
+                                && x.Source == HealthMeasurementSource.Inflight && x.RecordedAt <= now)
                     .OrderByDescending(x => x.RecordedAt)
                     .FirstOrDefaultAsync(ct);
                 var status = latest is null ? null : StatusEngine.Evaluate(metric, latest.Value, baselines.GetValueOrDefault(metric.Code));

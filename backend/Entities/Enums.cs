@@ -16,8 +16,8 @@ public enum MissionMode
 
 public enum HealthMeasurementSource
 {
-    PreFlight,
-    InFlight,
+    Preflight,
+    Inflight,
 }
 
 public enum QualityFlag

@@ -69,7 +69,7 @@ public sealed class DemoSeeder(ApplicationDbContext db, HealthConfig config, Mis
                         MetricCode = metric.Code,
                         Value = Draw(metric, center, spread, rng),
                         RecordedAt = at,
-                        Source = HealthMeasurementSource.PreFlight,
+                        Source = HealthMeasurementSource.Preflight,
                         SyncedAt = at,
                     });
                 }

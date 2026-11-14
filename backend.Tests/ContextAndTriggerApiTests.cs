@@ -80,7 +80,7 @@ public sealed class ContextAndTriggerApiTests : IDisposable
                 db.Measurements.Add(new Measurement
                 {
                     CrewMemberId = Guid.Parse(crew), MetricCode = "sleep_h", Value = 4.5,
-                    RecordedAt = now.AddHours(-hoursAgo), Source = HealthMeasurementSource.InFlight,
+                    RecordedAt = now.AddHours(-hoursAgo), Source = HealthMeasurementSource.Inflight,
                 });
         });
 
@@ -98,11 +98,15 @@ public sealed class ContextAndTriggerApiTests : IDisposable
         var alert = (await Get($"/api/crew/{crew}/alerts"))[0];
         Assert.Equal("Yellow", alert.GetProperty("level").GetString());
         Assert.True(alert.GetProperty("context").GetProperty("downgraded").GetBoolean());
+        // Same enum names as the live response, not numbers.
+        Assert.Equal("Yellow", alert.GetProperty("context").GetProperty("originalLevel").GetString());
+        Assert.Equal("Green", alert.GetProperty("context").GetProperty("level").GetString());
 
         // Ground receives the factors too.
         _factory.Time.Advance(TimeSpan.FromSeconds(721));
         var inbox = (await Get("/api/ground/inbox"))[0];
         Assert.True(inbox.GetProperty("payload").GetProperty("context").GetProperty("downgraded").GetBoolean());
+        Assert.Equal("Green", inbox.GetProperty("payload").GetProperty("context").GetProperty("level").GetString());
     }
 
     [Fact]

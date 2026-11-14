@@ -31,9 +31,10 @@ public sealed record AlertDto(Guid Id, Guid CrewMemberId, Guid? MeasurementId, S
         a.ContextJson is null ? null : JsonDocument.Parse(a.ContextJson).RootElement.Clone());
 }
 
-public sealed record ProtocolRunDto(Guid Id, Guid CrewMemberId, string ProtocolId, string ProtocolVersion, Guid? AlertId, DateTimeOffset StartedAt, DateTimeOffset? EndedAt, string StepsJson)
+public sealed record ProtocolRunDto(Guid Id, Guid CrewMemberId, string ProtocolId, string ProtocolVersion, Guid? AlertId, DateTimeOffset StartedAt, DateTimeOffset? EndedAt, JsonElement Steps)
 {
-    public static ProtocolRunDto From(ProtocolRun r) => new(r.Id, r.CrewMemberId, r.ProtocolId, r.ProtocolVersion, r.AlertId, r.StartedAt, r.EndedAt, r.StepsJson);
+    public static ProtocolRunDto From(ProtocolRun r) => new(r.Id, r.CrewMemberId, r.ProtocolId, r.ProtocolVersion, r.AlertId, r.StartedAt, r.EndedAt,
+        JsonDocument.Parse(r.StepsJson).RootElement.Clone());
 }
 
 // Crew-side API (/crew UI). Everything here works with the link down: nothing waits on ground.
@@ -91,7 +92,7 @@ public sealed class CrewController(MissionService missions, ApplicationDbContext
         return ApiResponse<IEnumerable<object>>.Succeeded(rows.Select(x =>
         {
             var met = config.Metrics.GetValueOrDefault(x.MetricCode);
-            var status = met is null || x.Source == HealthMeasurementSource.PreFlight
+            var status = met is null || x.Source == HealthMeasurementSource.Preflight
                 ? null
                 : StatusEngine.Evaluate(met, x.Value, baselines.GetValueOrDefault(x.MetricCode));
             return (object)new { x.Id, x.MetricCode, x.Value, x.RecordedAt, x.Source, x.QualityFlag, x.Note, Status = status };

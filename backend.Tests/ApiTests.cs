@@ -259,7 +259,7 @@ public sealed class ApiTests : IDisposable
         Assert.Equal(HttpStatusCode.BadRequest, noOutcome);
 
         var (_, ended) = await Post($"/api/crew/protocol-runs/{runId}/end", new { outcome = "hold_and_wait_for_ground" });
-        var steps = JsonDocument.Parse(ended.GetProperty("data").GetProperty("stepsJson").GetString()!).RootElement;
+        var steps = ended.GetProperty("data").GetProperty("steps");
         Assert.Equal(2, steps.GetArrayLength());
         Assert.Equal("n_start", steps[0].GetProperty("nodeId").GetString());
 

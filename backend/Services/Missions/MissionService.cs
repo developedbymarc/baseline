@@ -38,7 +38,11 @@ public sealed record LogSymptomResult(Guid SymptomLogId, Guid? AlertId, Protocol
 // The demo runs a single mission; "current mission" is the only one in the DB.
 public sealed class MissionService(ApplicationDbContext db, HealthConfig config, MissionClockService clock)
 {
-    private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
+    // Same JSON shape as the API responses (camelCase, enums as names) for everything stored or sent over the link.
+    internal static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web)
+    {
+        Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() },
+    };
 
     public async Task<Mission> CurrentAsync(CancellationToken ct = default) =>
         await db.Missions.OrderBy(m => m.LaunchDate).FirstOrDefaultAsync(ct)
@@ -66,7 +70,7 @@ public sealed class MissionService(ApplicationDbContext db, HealthConfig config,
         var now = Now(mission);
         var crewIds = await db.CrewMembers.Where(c => c.MissionId == mission.Id).Select(c => c.Id).ToListAsync(ct);
         var preflight = await db.Measurements
-            .Where(x => crewIds.Contains(x.CrewMemberId) && x.Source == HealthMeasurementSource.PreFlight)
+            .Where(x => crewIds.Contains(x.CrewMemberId) && x.Source == HealthMeasurementSource.Preflight)
             .Select(x => new { x.CrewMemberId, x.MetricCode, x.Value })
             .ToListAsync(ct);
 
@@ -115,7 +119,7 @@ public sealed class MissionService(ApplicationDbContext db, HealthConfig config,
             MetricCode = metric.Code,
             Value = value,
             RecordedAt = now,
-            Source = inflight ? HealthMeasurementSource.InFlight : HealthMeasurementSource.PreFlight,
+            Source = inflight ? HealthMeasurementSource.Inflight : HealthMeasurementSource.Preflight,
             QualityFlag = plausibility.Plausible ? QualityFlag.Ok : QualityFlag.ImplausibleConfirmed,
             Note = note,
         };
