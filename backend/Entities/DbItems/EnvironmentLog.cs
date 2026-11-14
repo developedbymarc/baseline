@@ -1,20 +1,14 @@
-using System.ComponentModel.DataAnnotations;
-using Microsoft.AspNetCore.Identity;
-
 namespace backend.Entities;
 
 public class EnvironmentLog
 {
-    public EnvironmentLog()
-    {
-        Id = Guid.NewGuid();
-    }
+    public Guid Id { get; set; } = Guid.NewGuid();
 
-    public Guid Id { get; set; }
+    public Guid MissionId { get; set; }
+    public Mission Mission { get; set; } = null!;
 
-    public EnvironmentMetric Metric { get; set; }
+    // Free string (e.g. "co2_mmhg") so the context rules file can add kinds without code changes.
+    public string Kind { get; set; } = null!;
     public double Value { get; set; }
-
-    [Required]
     public DateTimeOffset RecordedAt { get; set; }
 }

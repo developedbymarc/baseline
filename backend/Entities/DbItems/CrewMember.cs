@@ -1,30 +1,16 @@
-using System.ComponentModel.DataAnnotations;
-using Microsoft.AspNetCore.Identity;
-
 namespace backend.Entities;
 
-public class CrewMember : IdentityUser<Guid>
+public class CrewMember
 {
-    public CrewMember()
-    {
-        Id = Guid.NewGuid();
-    }
+    public Guid Id { get; set; } = Guid.NewGuid();
 
-    [Required]
-    public string FirstName { get; set; } = null!;
+    public Guid MissionId { get; set; }
+    public Mission Mission { get; set; } = null!;
 
-    [Required]
-    public string LastName { get; set; } = null!;
-
-    [Required]
+    public string Name { get; set; } = null!;
     public string Role { get; set; } = null!;
-
-    [Required]
-    public DateTimeOffset DateOfBirth { get; set; }
-
-    [Required]
-    public int HeightInCm { get; set; }
-
-    [Required]
-    public string Notes { get; set; } = null!;
+    public int Age { get; set; }
+    public string Sex { get; set; } = null!;
+    public int HeightCm { get; set; }
+    public string? Notes { get; set; }
 }

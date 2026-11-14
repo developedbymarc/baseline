@@ -1,30 +1,22 @@
-using System.Text;
-using System.Security.Claims;
 using System.Text.Json.Serialization;
-using Microsoft.AspNetCore.Antiforgery;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.AspNetCore.Cors.Infrastructure;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Options;
-using Microsoft.IdentityModel.Tokens;
 using Scalar.AspNetCore;
-using backend.Responses;
-using backend.Entities;
+using backend.Configuration;
+using backend.Controllers;
 using backend.Data;
-using backend.Constants;
-using backend.Services.ApplicationServices.TokenService;
+using backend.Responses;
+using backend.Services.Clock;
+using backend.Services.Missions;
+using backend.Services.Seed;
 
 DotNetEnv.Env.Load();
 var builder = WebApplication.CreateBuilder(args);
 
-// Add extra configuration providers (vaults, etc.) here, BEFORE Build()
-
 builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(p => p
-        .WithOrigins(builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()!)
+        .WithOrigins(builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [])
         .AllowCredentials()
         .WithMethods("GET", "POST", "PUT", "PATCH", "DELETE")
         .WithHeaders("Content-Type"));
@@ -32,11 +24,13 @@ builder.Services.AddCors(options =>
 
 // --- Controllers ---
 builder.Services
-    .AddControllers()
+    .AddControllers(options => options.Filters.Add<ApiExceptionFilter>())
     .AddJsonOptions(options =>
     {
-        // Accepts both names and numbers when reading (e.g. "Instructor" / 0), writes names
+        // Accepts both names and numbers when reading, writes names
         options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+        // Safety net: endpoints return DTOs, but never let an EF navigation cycle crash a response.
+        options.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
     })
     .ConfigureApiBehaviorOptions(options =>
     {
@@ -55,117 +49,47 @@ builder.Services
         };
     });
 
-// --- Database ---
-builder.Services.AddDbContext<ApplicationDbContext>(options =>
+// --- Health config (YAML under config/, loaded once, validated at start) ---
+builder.Services.AddSingleton(sp =>
 {
-    // sqlite
+    var cfg = sp.GetRequiredService<IConfiguration>();
+    var env = sp.GetRequiredService<IWebHostEnvironment>();
+    var dir = cfg["Health:ConfigDirectory"] ?? "../config";
+    return HealthConfig.LoadFromDirectory(Path.GetFullPath(dir, env.ContentRootPath));
 });
 
-// --- Identity ---
-builder.Services
-    .AddIdentityCore<CrewMember>(options =>
-    {
-        options.User.RequireUniqueEmail = true;
-        options.User.AllowedUserNameCharacters = Characters.Lowercase + Characters.Uppercase + Characters.Digits + "-._";
+// --- Database (SQLite, single file, no setup) ---
+builder.Services.AddDbContext<ApplicationDbContext>((sp, options) =>
+    options.UseSqlite(sp.GetRequiredService<IConfiguration>().GetConnectionString("Default") ?? "Data Source=baseline.db"));
 
-        options.Password.RequiredLength = 8;
-        options.Password.RequireNonAlphanumeric = true;
-        options.Password.RequireLowercase = true;
-        options.Password.RequireUppercase = true;
-        options.Password.RequireDigit = true;
-        options.Password.RequiredUniqueChars = 1;
-
-        options.SignIn.RequireConfirmedEmail = true;
-
-        options.Lockout.MaxFailedAccessAttempts = 5;
-        options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(30);
-    })
-    .AddRoles<IdentityRole<Guid>>()
-    .AddEntityFrameworkStores<ApplicationDbContext>()
-    .AddSignInManager()
-    .AddDefaultTokenProviders();
-
-builder.Services.Configure<DataProtectionTokenProviderOptions>(options =>
-{
-    options.TokenLifespan = TimeSpan.FromHours(1);
-});
-
-// --- JWT authentication ---
-builder.Services.AddAuthentication(options =>
-{
-    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-}).AddJwtBearer(options =>
-{
-    options.TokenValidationParameters = new TokenValidationParameters
-    {
-        ValidateIssuer = true,
-        ValidateAudience = true,
-        ValidateLifetime = true,
-        ValidateIssuerSigningKey = true,
-        ValidIssuer = builder.Configuration["AccessToken:Issuer"]!,
-        ValidAudience = builder.Configuration["AccessToken:Audience"]!,
-        IssuerSigningKey = new SymmetricSecurityKey(
-            Encoding.UTF8.GetBytes(builder.Configuration["AccessToken:SigningKey"]!)
-        )
-    };
-
-    options.Events = new JwtBearerEvents
-    {
-        OnMessageReceived = context =>
-        {
-            var accessTokenCookieName = builder.Configuration["Cookie:AccessToken"]!;
-            if (context.Request.Cookies.ContainsKey(accessTokenCookieName))
-            {
-                context.Token = context.Request.Cookies[accessTokenCookieName];
-            }
-
-            return Task.CompletedTask;
-        }
-    };
-});
-
-
-// Authz and policies
-builder.Services.AddAuthorization();
+// --- Services ---
+builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddSingleton<MissionClockService>();
+builder.Services.AddScoped<MissionService>();
+builder.Services.AddScoped<DemoSeeder>();
 
 // API docs
 builder.Services.AddOpenApi();
 
-// My Services
-builder.Services.AddScoped<AbstractRefreshTokenService, RefreshTokenService>();
-builder.Services.AddSingleton<AbstractAccessTokenService, AccessTokenService>();
-
 var app = builder.Build();
 
-if (args is ["migrate"])
-{
-    await using var scope = app.Services.CreateAsyncScope();
-    await scope.ServiceProvider.GetRequiredService<ApplicationDbContext>()
-        .Database.MigrateAsync();
-    return;
-}
-
-app.Services.GetRequiredService<IStartupValidator>().Validate();
-
+// Fail fast on bad YAML, log content warnings (never fatal), then make sure the demo mission exists.
+// `dotnet run -- reseed` wipes the SQLite file and reloads the synthetic mission.
+var healthConfig = app.Services.GetRequiredService<HealthConfig>();
+var configLogger = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("HealthConfig");
+configLogger.LogInformation("Loaded metrics.yaml v{Version}, {Metrics} metrics, protocols: {Protocols}",
+    healthConfig.MetricsVersion, healthConfig.Metrics.Count,
+    string.Join(", ", healthConfig.Protocols.Values.Select(p => $"{p.Id} v{p.Version}")));
+foreach (var warning in healthConfig.Warnings)
+    configLogger.LogWarning("Config warning: {Warning}", warning);
 using (var scope = app.Services.CreateScope())
 {
-    var services = scope.ServiceProvider;
-
-    // seeding roles
-    var roleManager = services.GetRequiredService<RoleManager<IdentityRole<Guid>>>();
-
-    var startupLogger = services.GetRequiredService<ILogger<Program>>();
-    foreach (var roleName in RoleNames.All)
-    {
-        if (!await roleManager.RoleExistsAsync(roleName))
-        {
-            var result = await roleManager.CreateAsync(new IdentityRole<Guid>(roleName));
-            if (!result.Succeeded)
-                startupLogger.LogCritical("Failed to seed role {Role}: {Errors}", roleName,
-                    string.Join("; ", result.Errors.Select(e => e.Description)));
-        }
-    }
+    var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+    var seeder = scope.ServiceProvider.GetRequiredService<DemoSeeder>();
+    if (args.Contains("reseed"))
+        await seeder.ResetAndSeedAsync();
+    else if (await db.Database.EnsureCreatedAsync() || !await db.Missions.AnyAsync())
+        await seeder.SeedAsync();
 }
 
 if (app.Environment.IsDevelopment())
@@ -175,9 +99,8 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseCors();
-app.UseAuthentication();
-app.UseAuthorization();
-
 app.MapControllers();
 
 app.Run();
+
+public partial class Program;
