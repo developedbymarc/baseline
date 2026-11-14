@@ -138,7 +138,7 @@ public sealed class SeedTests : IDisposable
     {
         var jordan = Crew("Jordan");
         Assert.Empty((await Get($"/api/crew/{jordan}/alerts")).EnumerateArray());
-        Assert.Empty((await Get($"/api/crew/{jordan}/measurements?days=1")).EnumerateArray().Where(m => m.GetProperty("source").GetString() == "Inflight"));
+        Assert.DoesNotContain((await Get($"/api/crew/{jordan}/measurements?days=1")).EnumerateArray(), m => m.GetProperty("source").GetString() == "Inflight");
 
         await JumpToDay(53);
         var alerts = (await Get($"/api/crew/{jordan}/alerts")).EnumerateArray().ToList();
