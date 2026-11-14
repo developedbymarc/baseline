@@ -3,7 +3,6 @@ import { superValidate } from 'sveltekit-superforms';
 import { message } from 'sveltekit-superforms';
 import { fail } from '@sveltejs/kit';
 import { yup } from 'sveltekit-superforms/adapters';
-import { userStore } from '#lib/stores.js';
 
 export const load = async () => {
   const form = await superValidate<ILoginFormData>(yup(LoginSchema));
