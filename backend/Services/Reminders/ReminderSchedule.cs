@@ -82,12 +82,13 @@ public static class ReminderRules
     public static readonly TimeSpan OnTimeGrace = TimeSpan.FromHours(1);
     public static readonly TimeSpan OneOffMissedAfter = TimeSpan.FromDays(1);
 
-    // Completing a measurement clears the oldest open reminder for that metric (B2).
+    // Completing a measurement clears the most recent open reminder it can belong to (B2): the latest pending
+    // instance that is already due or due within the early window.
     public static ReminderInstance? Complete(IEnumerable<ReminderInstance> openForMetric, DateTimeOffset recordedAt)
     {
         var target = openForMetric
             .Where(i => i.Status == ReminderStatus.Pending && i.DueAt <= recordedAt + EarlyWindow)
-            .OrderBy(i => i.DueAt)
+            .OrderByDescending(i => i.DueAt)
             .FirstOrDefault();
         if (target is null) return null;
         target.Status = recordedAt <= target.DueAt + OnTimeGrace ? ReminderStatus.Done : ReminderStatus.Late;
@@ -106,6 +107,28 @@ public static class ReminderRules
                 ? (oneOff ? inst.DueAt + OneOffMissedAfter : (DateTimeOffset?)null)
                 : ruleInstancesByDue[i + 1].DueAt;
             if (cutoff is { } c && c <= missionNow) inst.Status = ReminderStatus.Missed;
+        }
+    }
+
+    // Completes pending reminders from stored readings: each reading completes the LATEST pending instance
+    // whose window it falls in (due - early window .. next due), so a reading taken just before 08:00 counts
+    // for today's slot, not for an older one still open; one reading never completes two instances.
+    // Readings already used (an instance's CompletedAt) are skipped. Done if within the grace time, else Late.
+    public static void CompleteFromReadings(IReadOnlyList<ReminderInstance> byDue, IEnumerable<DateTimeOffset> readingTimes, bool oneOff)
+    {
+        var used = byDue.Where(i => i.CompletedAt is not null).Select(i => i.CompletedAt!.Value).ToHashSet();
+        foreach (var t in readingTimes.Where(t => !used.Contains(t)).OrderBy(t => t))
+        {
+            for (var i = byDue.Count - 1; i >= 0; i--)
+            {
+                var inst = byDue[i];
+                if (inst.Status != ReminderStatus.Pending) continue;
+                var until = i + 1 < byDue.Count ? byDue[i + 1].DueAt : inst.DueAt + (oneOff ? OneOffMissedAfter : TimeSpan.FromDays(1));
+                if (t < inst.DueAt - EarlyWindow || t >= until) continue;
+                inst.Status = t <= inst.DueAt + OnTimeGrace ? ReminderStatus.Done : ReminderStatus.Late;
+                inst.CompletedAt = t;
+                break;
+            }
         }
     }
 

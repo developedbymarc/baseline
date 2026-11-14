@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using backend.Data;
 using backend.Entities;
@@ -51,6 +52,16 @@ public sealed class ReportApiTests : IDisposable
 
     private DateTimeOffset Launch => WithDb(db => db.Missions.Single().LaunchDate);
 
+    // Hand-computed tests start from a clean in-flight history (the demo seed plants 90 days of data).
+    private void ClearSeededFlight() => WithDb(db =>
+    {
+        db.LinkMessages.ExecuteDelete();
+        db.Alerts.ExecuteDelete();
+        db.Measurements.Where(m => m.Source == HealthMeasurementSource.Inflight).ExecuteDelete();
+        db.EnvironmentLogs.ExecuteDelete();
+        return 0;
+    });
+
     // In-flight reading on mission day `day` at 08:30 UTC (launch is 06:00), already delivered to ground.
     private void Reading(Guid crew, string metric, int day, double value) => WithDb(db =>
     {
@@ -95,6 +106,7 @@ public sealed class ReportApiTests : IDisposable
     [Fact]
     public async Task Planted_bp_drift_shows_as_rising_with_z_and_highlight()
     {
+        ClearSeededFlight();
         var a = await CrewId();
         var mean = BaselineMean(a, "bp_sys");
         for (var day = 15; day <= 28; day++)
@@ -169,6 +181,7 @@ public sealed class ReportApiTests : IDisposable
     [Fact]
     public async Task Alerts_with_and_without_context_factors_are_counted()
     {
+        ClearSeededFlight();
         var a = await CrewId();
         var hrMean = BaselineMean(a, "hr_rest");
         var hrSd = WithDb(db => db.Baselines.Single(b => b.CrewMemberId == a && b.MetricCode == "hr_rest").StandardDeviation);
@@ -236,6 +249,7 @@ public sealed class ReportApiTests : IDisposable
     [Fact]
     public async Task Four_crew_by_90_days_report_generation_under_3_seconds()
     {
+        ClearSeededFlight();
         // 4 crew x 90 in-flight days x 8 metrics.
         WithDb(db =>
         {

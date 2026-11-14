@@ -168,9 +168,19 @@ public class ReportEngineTests
         var now = Start.AddDays(4).AddHours(3);
         var (missed, expected) = ReportEngine.CountMissed(due, readings, now, TimeSpan.FromHours(2), TimeSpan.FromDays(1));
         Assert.Equal(5, expected); // all five are due by now
-        // The day-3 reading (06:00) falls in day 2's window (day 2 06:00 to day 3 08:00), so it completes day 2,
-        // the oldest open slot; day 3 then stays open and is missed. Day 4 is open until day 5 08:00.
+        // The day-3 reading (06:00, two hours early) completes day 3, the latest slot whose window holds it,
+        // even though day 2 is still open; day 2 is missed. Day 4 is open until day 5 08:00.
         Assert.Equal(1, missed);
+    }
+
+    [Fact]
+    public void Early_reading_after_a_gap_does_not_shift_later_slots()
+    {
+        // Daily 08:00 slots on days 0..9; nothing on days 3-5; readings every other day at 07:55 (5 min early).
+        var due = Enumerable.Range(0, 10).Select(d => Start.AddDays(d).AddHours(2)).ToList();
+        var readings = Enumerable.Range(0, 10).Where(d => d is < 3 or > 5).Select(d => Start.AddDays(d).AddHours(1.9)).ToList();
+        var (missed, _) = ReportEngine.CountMissed(due, readings, Start.AddDays(11), TimeSpan.FromHours(2), TimeSpan.FromDays(1));
+        Assert.Equal(3, missed); // exactly the gap
     }
 
     [Fact]

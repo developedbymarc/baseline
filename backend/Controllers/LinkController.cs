@@ -20,7 +20,7 @@ public sealed class LinkController(MissionService missions, ApplicationDbContext
         var m = await missions.CurrentAsync(ct);
         await missions.DeliverDueAsync(m, ct);
         var now = missions.Now(m);
-        var q = db.LinkMessages.Where(x => x.MissionId == m.Id);
+        var q = db.LinkMessages.Where(x => x.MissionId == m.Id && x.SentAt <= now); // not yet "sent" = still in the seeded future
         if (types is not null) q = q.Where(x => types.Contains(x.Type));
         var rows = await q.OrderByDescending(x => x.SentAt).ToListAsync(ct);
         return ApiResponse<IEnumerable<LinkMessageDto>>.Succeeded(rows.Select(x => LinkMessageDto.From(x, now)));

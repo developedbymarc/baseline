@@ -72,7 +72,7 @@ public static class ReportEngine
             n < options.MinPointsForConfidence);
     }
 
-    // Same rule as the crew-side reminders: each reading completes the OLDEST open scheduled slot whose window
+    // Same rule as the crew-side reminders: each reading completes the LATEST open scheduled slot whose window
     // it falls in (from due - early window to the next due time); one reading never completes two slots.
     // A slot is missed when it is still open once its next due time has passed.
     public static (int Missed, int Expected) CountMissed(
@@ -84,7 +84,7 @@ public static class ReportEngine
         var done = new bool[due.Count];
         foreach (var t in readingTimes.OrderBy(t => t))
         {
-            for (var i = 0; i < due.Count; i++)
+            for (var i = due.Count - 1; i >= 0; i--)
             {
                 if (done[i] || t < due[i] - earlyWindow || t >= until[i]) continue;
                 done[i] = true;

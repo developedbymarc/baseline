@@ -215,11 +215,13 @@ public sealed class ApiTests : IDisposable
         var after = (await Get("/api/mission")).GetProperty("missionNow").GetDateTimeOffset();
         Assert.Equal(before.AddDays(2), after);
 
-        // Daily reminders: earlier days are missed, today's is overdue / due.
-        var all = await Get($"/api/crew/{crew}/reminders?openOnly=false");
-        Assert.Contains(all.EnumerateArray(), r => r.GetProperty("status").GetString() == "Missed");
+        // Daily reminders follow the clock: the seeded readings of days 1-2 complete theirs (Done), nothing is
+        // missed, and the open ones are today's and tomorrow's.
+        var all = (await Get($"/api/crew/{crew}/reminders?openOnly=false")).EnumerateArray().ToList();
+        Assert.Contains(all, r => r.GetProperty("status").GetString() == "Done");
+        Assert.DoesNotContain(all, r => r.GetProperty("status").GetString() == "Missed");
         var open = await Get($"/api/crew/{crew}/reminders");
-        Assert.Contains(open.EnumerateArray(), r => r.GetProperty("overdue").GetBoolean());
+        Assert.All(open.EnumerateArray(), r => Assert.True(r.GetProperty("dueAt").GetDateTimeOffset() >= after.AddHours(-24)));
     }
 
     [Fact]

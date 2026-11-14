@@ -173,7 +173,9 @@ public sealed class CrewController(MissionService missions, ApplicationDbContext
         await missions.CrewAsync(m, crewId, ct);
         if (me.IsGround) await missions.DeliverDueAsync(m, ct);
         var source = me.IsGround ? missions.GroundVisibleAlerts() : db.Alerts;
-        var rows = await source.Where(a => a.CrewMemberId == crewId).OrderByDescending(a => a.CreatedAt).ToListAsync(ct);
+        var now = missions.Now(m);
+        // CreatedAt <= now: seeded history ahead of the mission clock stays hidden until the clock reaches it.
+        var rows = await source.Where(a => a.CrewMemberId == crewId && a.CreatedAt <= now).OrderByDescending(a => a.CreatedAt).ToListAsync(ct);
         return ApiResponse<IEnumerable<AlertDto>>.Succeeded(rows.Select(AlertDto.From));
     }
 

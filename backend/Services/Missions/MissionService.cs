@@ -189,11 +189,9 @@ public sealed class MissionService(ApplicationDbContext db, HealthConfig config,
 
         if (inflight)
         {
+            // Save the reading first: the reminder sync completes reminders from stored readings (one rule everywhere).
+            await db.SaveChangesAsync(ct);
             await SyncRemindersAsync(mission, crew.Id, ct);
-            var open = await db.ReminderInstances
-                .Where(i => i.Rule.CrewMemberId == crew.Id && i.Rule.MetricCode == metric.Code && i.Status == ReminderStatus.Pending)
-                .ToListAsync(ct);
-            ReminderRules.Complete(open, now);
         }
 
         await db.SaveChangesAsync(ct);
@@ -329,7 +327,18 @@ public sealed class MissionService(ApplicationDbContext db, HealthConfig config,
                 db.ReminderInstances.Add(inst);
                 existing.Add(inst);
             }
-            ReminderRules.MarkMissed(existing.OrderBy(i => i.DueAt).ToList(), now, schedule.Kind == "one_off");
+            var byDue = existing.OrderBy(i => i.DueAt).ToList();
+            // Readings already stored (including seeded history) complete their reminders.
+            if (byDue.Any(i => i.Status == ReminderStatus.Pending))
+            {
+                var firstOpen = byDue.First(i => i.Status == ReminderStatus.Pending).DueAt - ReminderRules.EarlyWindow;
+                var times = await db.Measurements
+                    .Where(x => x.CrewMemberId == crewId && x.MetricCode == rule.MetricCode && x.RecordedAt >= firstOpen && x.RecordedAt <= now)
+                    .Select(x => x.RecordedAt)
+                    .ToListAsync(ct);
+                ReminderRules.CompleteFromReadings(byDue, times, schedule.Kind == "one_off");
+            }
+            ReminderRules.MarkMissed(byDue, now, schedule.Kind == "one_off");
         }
         await db.SaveChangesAsync(ct);
     }
