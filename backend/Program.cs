@@ -68,6 +68,8 @@ builder.Services.AddSingleton<MissionClockService>();
 builder.Services.AddScoped<MissionService>();
 builder.Services.AddSingleton(_ => new backend.Services.Packets.PacketTemplate(backend.Services.Packets.PacketTemplate.DefaultPath));
 builder.Services.AddScoped<backend.Services.Packets.PacketBuilder>();
+builder.Services.Configure<backend.Services.Reports.ReportOptions>(builder.Configuration.GetSection("Reports"));
+builder.Services.AddScoped<backend.Services.Reports.ReportService>();
 builder.Services.AddScoped<DemoSeeder>();
 
 // API docs
