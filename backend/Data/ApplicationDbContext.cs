@@ -4,7 +4,7 @@ using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using backend.Entities;
 
-namespace OpenAcademy.Data;
+namespace backend.Data;
 
 public sealed class ApplicationDbContext : IdentityDbContext<CrewMember, IdentityRole<Guid>, Guid>
 {

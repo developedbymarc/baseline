@@ -11,6 +11,10 @@ using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Scalar.AspNetCore;
 using backend.Responses;
+using backend.Entities;
+using backend.Data;
+using backend.Constants;
+using backend.Services.ApplicationServices.TokenService;
 
 DotNetEnv.Env.Load();
 var builder = WebApplication.CreateBuilder(args);
@@ -54,12 +58,12 @@ builder.Services
 // --- Database ---
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
 {
-    options.UseSqlite()
+    // sqlite
 });
 
 // --- Identity ---
 builder.Services
-    .AddIdentityCore<ApplicationUser>(options =>
+    .AddIdentityCore<CrewMember>(options =>
     {
         options.User.RequireUniqueEmail = true;
         options.User.AllowedUserNameCharacters = Characters.Lowercase + Characters.Uppercase + Characters.Digits + "-._";
@@ -76,7 +80,7 @@ builder.Services
         options.Lockout.MaxFailedAccessAttempts = 5;
         options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(30);
     })
-    .AddRoles<ApplicationRole>()
+    .AddRoles<IdentityRole<Guid>>()
     .AddEntityFrameworkStores<ApplicationDbContext>()
     .AddSignInManager()
     .AddDefaultTokenProviders();
@@ -121,80 +125,16 @@ builder.Services.AddAuthentication(options =>
     };
 });
 
-builder.Services
-    .AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme)
-    .Configure<IOptions<JwtOptions>>((bearer, jwt) =>
-    {
-        var jwtOptions = jwt.Value;
-
-        bearer.TokenValidationParameters = new TokenValidationParameters
-        {
-            ValidateIssuer = true,
-            ValidIssuer = jwtOptions.Issuer,
-
-            ValidateAudience = true,
-            ValidAudience = jwtOptions.Audience,
-
-            ValidateIssuerSigningKey = true,
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtOptions.SigningKey)),
-
-            ValidAlgorithms = [jwtOptions.Algorithm],
-            ValidateLifetime = true,
-            ClockSkew = jwtOptions.ClockSkew,
-        };
-
-        bearer.Events = new JwtBearerEvents
-        {
-            // A null token falls through to the Authorization header
-            OnMessageReceived = ctx =>
-            {
-                ctx.Token = ctx.Request.Cookies[jwtOptions.CookieName];
-                return Task.CompletedTask;
-            },
-            // Reject disabled accounts
-            OnTokenValidated = async ctx =>
-            {
-                var userIdValue = ctx.Principal?.FindFirst(ClaimTypes.NameIdentifier)?.Value
-                                  ?? ctx.Principal?.FindFirst("sub")?.Value;
-                if (!Guid.TryParse(userIdValue, out var userId))
-                {
-                    ctx.Fail("The token does not identify a valid user.");
-                    return;
-                }
-
-                var dbContext = ctx.HttpContext.RequestServices.GetRequiredService<ApplicationDbContext>();
-                var now = DateTimeOffset.UtcNow;
-
-                var accountIsEnabled = await dbContext.Users
-                    .AsNoTracking()
-                    .AnyAsync(user =>
-                        user.Id == userId
-                        && user.Status != AccountStatus.Disabled
-                        && (!user.LockoutEnabled
-                            || user.LockoutEnd == null
-                            || user.LockoutEnd <= now),
-                    ctx.HttpContext.RequestAborted);
-
-                if (!accountIsEnabled)
-                {
-                    ctx.Fail("The account is disabled or locked.");
-                }
-            },
-        };
-    });
 
 // Authz and policies
 builder.Services.AddAuthorization();
-builder.Services.AddCourseAccessPolicies();
 
 // API docs
 builder.Services.AddOpenApi();
 
 // My Services
-builder.Services.AddScoped<RootUserBootstrapper>();
 builder.Services.AddScoped<AbstractRefreshTokenService, RefreshTokenService>();
 builder.Services.AddSingleton<AbstractAccessTokenService, AccessTokenService>();
-builder.Services.AddSingleton<EmailTemplateStore>();
 
 var app = builder.Build();
 
@@ -213,32 +153,18 @@ using (var scope = app.Services.CreateScope())
     var services = scope.ServiceProvider;
 
     // seeding roles
-    var roleManager = services.GetRequiredService<RoleManager<ApplicationRole>>();
+    var roleManager = services.GetRequiredService<RoleManager<IdentityRole<Guid>>>();
 
     var startupLogger = services.GetRequiredService<ILogger<Program>>();
     foreach (var roleName in RoleNames.All)
     {
         if (!await roleManager.RoleExistsAsync(roleName))
         {
-            var result = await roleManager.CreateAsync(new ApplicationRole(roleName));
+            var result = await roleManager.CreateAsync(new IdentityRole<Guid>(roleName));
             if (!result.Succeeded)
                 startupLogger.LogCritical("Failed to seed role {Role}: {Errors}", roleName,
                     string.Join("; ", result.Errors.Select(e => e.Description)));
         }
-    }
-
-    // bootstrapping root
-    if (args.Contains("bootstrap-root"))
-    {
-        Environment.ExitCode = await BootstrapRootCommand.RunAsync(services);
-        return;   // exits without starting the web server
-    }
-
-    var bootstrapper = services.GetRequiredService<RootUserBootstrapper>();
-    if (!await bootstrapper.RootExistsAsync())
-    {
-        startupLogger.LogWarning(
-            "No root user exists. Create one with: podman compose run --rm api bootstrap-root");
     }
 }
 
