@@ -1,0 +1,210 @@
+# BASELINE: config/metrics.yaml  (work package 2.1, owner: Serge)
+# v1.1. All data in the app is SYNTHETIC. BASELINE is decision support, not diagnosis.
+#
+# Status rules (decided; Mark's status engine 4.2 reads this):
+#   green  = inside warn_low..warn_high
+#   yellow = between warn and crit limits
+#   red    = beyond crit_low / crit_high
+#   final status = worse of (absolute limits, personal z-score)
+#   normal_low/normal_high = shaded healthy band on trend charts only
+#   null = no limit on that side; the engine skips it
+#   plausible_min/max = typo check only (story C3), deliberately wide
+
+version: 1
+
+metrics:
+  - code: hr_rest # heart beats per minute while calm and still
+    name: Resting heart rate
+    unit: bpm
+    plausible_min: 25        # team: below any survivable resting rate seen in athletes (Mayo: ~40)
+    plausible_max: 220       # team: age-based max HR formula "220 minus age" tops out near here
+    normal_low: 60           # cited
+    normal_high: 100         # cited
+    warn_low: 50             # team: Mayo says below 60 is only a flag if NOT a trained athlete
+    warn_high: 100           # cited: above 100 at rest
+    crit_low: 40             # cited-ish: Mayo, very fit athletes may be near 40
+    crit_high: 120           # team: 20 above the cited limit
+    z_warn: 1.5
+    z_crit: 2.5
+    polarity: both
+    instructions_md: howto/hr_rest.md
+    sources:
+      - field: normal_low, normal_high, warn_high, crit_low
+        publisher: Mayo Clinic
+        title: "Heart rate: What's normal?"
+        url: https://www.mayoclinic.org/heart-rate/expert-answers/faq-20057979
+        note: Adult resting 60-100 bpm; very fit athletes closer to 40; see a professional if regularly above 100 or, for non-athletes, often below 60.
+        checked: 2026-11-14
+
+  - code: bp_sys # systolic blood preasure, the top number, pressure when the heart pumps
+    name: Systolic blood pressure
+    unit: mmHg
+    plausible_min: 50        # team
+    plausible_max: 260       # team
+    normal_low: 90           # cited
+    normal_high: 120         # cited
+    warn_low: 90             # cited (general guideline)
+    warn_high: 130           # cited: stage 1 hypertension
+    crit_low: 80             # team: about 10 below the cited low line
+    crit_high: 140           # cited: stage 2 hypertension (changed from 180 so the yellow band is not 130-180)
+    z_warn: 1.5
+    z_crit: 2.5
+    polarity: both
+    instructions_md: howto/bp.md
+    sources:
+      - field: normal_high, warn_high, crit_high
+        publisher: American Heart Association
+        title: Understanding Blood Pressure Readings
+        url: https://heart.org/bplevels
+        note: Normal below 120; stage 1 130-139; stage 2 140 or higher; crisis above 180 (and/or 120 diastolic).
+        checked: 2026-11-14
+      - field: normal_low, warn_low
+        publisher: Mayo Clinic
+        title: Low blood pressure (hypotension)
+        url: https://www.mayoclinic.org/diseases-conditions/low-blood-pressure/symptoms-causes/syc-20355465
+        note: In general, low is below 90/60 mm Hg; symptoms matter more than the number.
+        checked: 2026-11-14
+
+  - code: bp_dia # diastolic blood pressure, the bottom number, pressure when the heart rests
+    name: Diastolic blood pressure
+    unit: mmHg
+    plausible_min: 30        # team
+    plausible_max: 150       # team
+    normal_low: 60           # cited
+    normal_high: 80          # cited
+    warn_low: 60             # cited (general guideline)
+    warn_high: 80            # cited: stage 1 starts at 80
+    crit_low: 50             # team
+    crit_high: 90            # cited: stage 2 starts at 90
+    z_warn: 1.5
+    z_crit: 2.5
+    polarity: both
+    instructions_md: howto/bp.md
+    sources:
+      - field: normal_high, warn_high, crit_high
+        publisher: American Heart Association
+        title: Understanding Blood Pressure Readings
+        url: https://heart.org/bplevels
+        note: Normal below 80; stage 1 80-89; stage 2 90 or higher; crisis above 120.
+        checked: 2026-11-14
+      - field: normal_low, warn_low
+        publisher: Mayo Clinic
+        title: Low blood pressure (hypotension)
+        url: https://www.mayoclinic.org/diseases-conditions/low-blood-pressure/symptoms-causes/syc-20355465
+        note: In general, low is below 90/60 mm Hg.
+        checked: 2026-11-14
+
+  - code: temp
+    name: Body temperature
+    unit: "°C"
+    plausible_min: 30        # team
+    plausible_max: 43        # team
+    normal_low: 36.1         # cited
+    normal_high: 37.2        # cited
+    warn_low: 36.1           # cited
+    warn_high: 37.5          # cited: MedlinePlus, adult probably has a fever above 37.2-37.5 °C
+    crit_low: 35.0           # cited: hypothermia
+    crit_high: 38.0          # cited: fever
+    z_warn: 1.5
+    z_crit: 2.5
+    polarity: both
+    instructions_md: howto/temp.md
+    sources:
+      - field: normal_low, normal_high, crit_high
+        publisher: MedlinePlus (U.S. National Library of Medicine)
+        title: Body temperature norms
+        url: https://medlineplus.gov/ency/article/001982.htm
+        note: Normal 36.1-37.2 °C (97-99 °F); over 38 °C (100.4 °F) most often means fever. Seen in a search result; page itself not opened.
+        checked: 2026-11-14
+      - field: warn_high
+        publisher: MedlinePlus (U.S. National Library of Medicine)
+        title: Fever
+        url: https://www.nlm.nih.gov/medlineplus/ency/article/003090.htm
+        note: An adult probably has a fever above 37.2-37.5 °C (99-99.5 °F) depending on time of day. Seen in a search result; page itself not opened.
+        checked: 2026-11-14
+      - field: crit_low
+        publisher: Cedars-Sinai
+        title: Hypothermia
+        url: https://www.cedars-sinai.org/health-topics/hypothermia
+        note: Hypothermia is below 35 °C (95 °F), a medical emergency.
+        checked: 2026-11-14
+
+  - code: spo2 # share of the blood carrying oxygen, from a fingertip sensor
+    name: Blood oxygen saturation
+    unit: "%"
+    plausible_min: 50        # team: oximeters are least reliable below 80 (MedlinePlus magazine); 50 only filters typos
+    plausible_max: 100       # physical maximum
+    normal_low: 95           # cited
+    normal_high: 100         # cited
+    warn_low: 95             # cited
+    warn_high: null
+    crit_low: 92             # cited: contact a provider at 92% or lower
+    crit_high: null
+    z_warn: 1.5
+    z_crit: 2.5
+    polarity: low
+    instructions_md: howto/spo2.md
+    sources:
+      - field: normal_low, normal_high, warn_low, crit_low
+        publisher: MedlinePlus (U.S. National Library of Medicine)
+        title: "Pulse Oximetry: MedlinePlus Medical Test"
+        url: https://medlineplus.gov/lab-tests/pulse-oximetry/
+        note: Normal 95-100%; contact provider at 92% or lower; seek immediate attention at 88% or lower (use this in the alert text); results 2-4% off.
+        checked: 2026-11-14
+
+  - code: sleep_h # hours slept the previous night
+    name: Sleep duration
+    unit: h
+    plausible_min: 0         # team
+    plausible_max: 16        # team
+    normal_low: 7            # cited
+    normal_high: 9           # cited (CDC 61-64 range); display only
+    warn_low: 7              # cited
+    warn_high: null
+    crit_low: 5              # team: no source; 5 is well under the CDC floor
+    crit_high: null
+    z_warn: 1.5
+    z_crit: 2.5
+    polarity: low
+    instructions_md: howto/sleep.md
+    sources:
+      - field: normal_low, normal_high, warn_low
+        publisher: CDC
+        title: About Sleep
+        url: https://www.cdc.gov/sleep/about/index.html
+        note: Adults 18-60 "7 or more hours"; 61-64 "7-9 hours"; 65+ "7-8 hours". Updated 2024-05-15.
+        checked: 2026-11-14
+
+  # Context inputs: no status limits. Needed by context rules missed_exercise and high_stress
+  # and the planted sleep/mood anomaly. Self-reported, so not health thresholds and nothing to cite.
+  - code: mood
+    name: Mood (self-rating)
+    unit: "1-5"
+    plausible_min: 1
+    plausible_max: 5
+    normal_low: null
+    normal_high: null
+    warn_low: null
+    warn_high: null
+    crit_low: null
+    crit_high: null
+    z_warn: null
+    z_crit: null
+    polarity: none
+    instructions_md: howto/mood.md
+
+  - code: exercise_min # minutes of exercise that day.H
+    name: Exercise (minutes)
+    unit: min
+    plausible_min: 0
+    plausible_max: 600
+    normal_low: null
+    normal_high: null
+    warn_low: null
+    warn_high: null
+    crit_low: null
+    crit_high: null
+    z_warn: null
+    z_crit: null
+    polarity: none
+    instructions_md: howto/exercise.md
