@@ -1,0 +1,96 @@
+*,
+*::before,
+*::after {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+html {
+    /* https://kilianvalkhof.com/2022/css-html/your-css-reset-needs-text-size-adjust-probably/ */
+    -moz-text-size-adjust: none;
+    -webkit-text-size-adjust: none;
+    text-size-adjust: none;
+
+    scrollbar-gutter: stable;
+}
+
+body {
+    font-family: var(--ffBase);
+    font-size: var(--fs1);
+
+    background-color: var(--bg);
+    color: var(--text);
+
+    margin: 0;
+    line-height: 1.6;
+
+    transition: background-color 99ms ease-in-out;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+    text-wrap: balance;
+}
+
+p,
+li,
+figcaption {
+    text-wrap: pretty;
+    /* max-width: 65ch; */
+}
+
+input,
+button,
+textarea,
+select {
+  font-family: inherit;
+  font-size: inherit;
+  max-width: 100%;
+}
+
+input:where([type='radio'], [type='checkbox']) {
+	accent-color: var(--accent);
+}
+
+a.button,
+button {
+    font-weight: bold;
+    cursor: pointer;
+    /* border: none; */
+    text-box: trim-start alphabetic;
+}
+
+main,
+header,
+footer,
+section,
+article {
+    container-type: inline-size;
+}
+
+img,
+video {
+	display: block;
+	width: 100%;
+	height: 100%;
+
+	object-fit: cover;
+	border-radius: var(--globBorderRadius);
+	background-color: var(--bgOverlay);
+}
+
+:target {
+  scroll-margin-block: var(--globScrollMarginBlock);
+}
+
+:focus-visible {
+    outline: var(--outlineFocusThickness)
+        solid
+        hsl(from var(--accent) h s calc(l + var(--btnActiveStrength)));
+    outline-offset: var(--outlineFocusOffset);
+}

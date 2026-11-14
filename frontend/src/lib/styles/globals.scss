@@ -1,0 +1,189 @@
+@import url('https://fonts.googleapis.com/css2?family=Lato:ital,wght@0,100;0,300;0,400;0,700;0,900;1,100;1,300;1,400;1,700;1,900&display=swap');
+
+input,
+button,
+textarea,
+select{
+    border-radius: var(--globBorderRadius);
+}
+
+a:not(.button, .card) {
+    font-weight: inherit;
+    color: currentColor;
+    text-decoration: none;
+
+    &[data-active="true"],
+    &:hover,
+    &:focus-visible {
+        color: var(--accent);
+        text-decoration: var(--linkUnderlineThickness) solid underline;
+    }
+}
+
+$colors: (
+  "accent": var(--accent),
+  "muted": var(--clrMuted),
+  "error": var(--clrError),
+  "success": var(--clrSuccess)
+);
+
+@each $name, $clr in $colors {
+  .clr-#{$name} {
+    color: $clr;
+  }
+}
+
+$fontSizes: (
+  "fs1": var(--fs1),
+  "fs2": var(--fs2),
+  "fs3": var(--fs3),
+  "fs4": var(--fs4),
+  "fs5": var(--fs5),
+);
+
+@each $name, $fs in $fontSizes {
+  .#{$name} {
+    font-size: $fs;
+  }
+}
+
+:root {
+    color-scheme: light;
+    @media(prefers-color-scheme: dark) {
+        color-scheme: dark;
+    }
+
+    /* Global stylings */
+    --globBodySpacing: 1rem;
+    --globScrollMarginBlock: 5ex;
+    --globBorderRadius: 0.5rem;
+    --globBorderThickness: 2px;
+    --globTextStrokeThickness: 0.5rem;
+    --globThemeBorderBrightness: -15;
+    --globThemeBorderAlpha: 0.35;
+    --globLineHeight: 1.6rem;
+
+    --mainContainerMaxWidth: 2000px;
+    --mainContainerPadding: clamp(1rem, 4vw, 2rem);
+
+    /* Components */
+        /* Outline */
+        --outlineFocusThickness: 2px;
+        --outlineFocusOffset: 0.25rem;
+
+        /* Anchor */
+        --linkUnderlineThickness: 2px;
+
+        /* Navbar */
+        --mainNavBorderThickness: 1px;
+        --mainNavSpacing: 0.25em 2.5em;
+        --mainNavMargin: 1em;
+
+        /* Button */
+        --btnMargin: 0.35em 1em;
+        --btnIconGap: 0.75rem;
+        --btnActiveStrength: 10;
+        --btnOutlineBgActiveStrength: 15;
+        --btnOutlineTextActiveStrength: 5;
+        --btnOutlineAlpha: 15%;
+        --btnOutlineAlphaActive: 42%;
+
+        /* Card */
+        --cardSpacing: 1em;
+        --cardSpacingMedium: 1.5em;
+        --cardSpacingLarge: 3em;
+
+        /* Input */
+        --fsInptLabel: 0.975rem;
+        --fsInptText: 1rem;
+        --inptGap: 0.2rem;
+        --inptPadding: 0.6em 1em;
+        --inptErrListMargin: 1.5rem;
+        --inptBorderBrightness: -15;
+        --inptBgAlpha: 0.125;
+        --inptBorderAlpha: 0.35;
+
+        --inptCheckboxSize: 1.25rem;
+
+        // Explore Head
+        --exploreHeadInptWidth: 42vw;
+
+        // Explore
+        --exploreContainerSize: 75vw;
+        --exploreContainerColumns: 25% auto;
+
+        // Dashboard
+        --dashboardGridColumns: 18% auto;
+
+        // Course Explore
+        --courseExploreContainerMaxWidth: 1440px;
+
+        // Auth Forms
+        --authFormMinWidth: 28vw;
+
+        // Responsivness
+        --mobileThreshold: 120ch;
+
+    /* Fonts */
+    --ffBase: "Lato", system-ui;
+    --ffNav: 1.75rem;
+    --fs1: 1rem;
+    --fs2: 1.25rem;
+    --fs3: 1.5rem;
+    --fs4: 1.75rem;
+    --fs5: 2rem;
+    --fsBig: 3rem;
+
+    --fsButton: 0.98rem;
+
+    /* Colors */
+    --bg: hsl(0 0% 100%);
+    --bgOverlay: hsl(0 0% 92%);
+    --text: hsl(0 0% 0%);
+    --accent: hsl(269 64% 55%);
+
+    --clrMuted: hsl(0 0% 75%);
+    --clrError: hsl(352 70% 50%);
+    --clrSuccess: hsl(110 70% 50%);
+
+
+    /* Spacings */
+    --selectInptPadding: 0.35em 0.75em;
+
+}
+
+:root:has([data-theme="light"]) {
+    color-scheme: light;
+}
+
+:root:has([data-theme="dark"]) {
+    color-scheme: dark;
+
+    // Global stylings
+    --globThemeBorderBrightness: 15;
+    --globThemeBorderAlpha: 0.35;
+
+    --bg: hsl(0 0% 8%);
+    --bgOverlay: hsl(0 0% 13%);
+    --text: hsl(0 0% 100%);
+    --accent: hsl(269 64% 55%);
+
+    --clrMuted: hsl(0 0% 90%);
+
+    --card-clr-border: hsl(0 0% 15%);
+
+    --btnOutlineBgActiveStrength: 30;
+    --btnOutlineTextActiveStrength: 30;
+
+    // Input
+    --inptBorderBrightness: 15;
+    --inptBgAlpha: 0.125;
+    --inptBorderAlpha: 0.35;
+}
+
+:root:has([data-theme="gruvbox"]) {
+    --bg: hsl(40 100% 94%);
+    --bgOverlay: hsl(40 90% 88%);
+    --text: hsl(40 41% 15%);
+    --accent: hsl(27 75% 55%);
+}
