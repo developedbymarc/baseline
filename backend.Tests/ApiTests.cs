@@ -167,9 +167,10 @@ public sealed class ApiTests : IDisposable
     {
         var crew = await FirstCrewId();
         await Post("/api/demo/link", new { up = false });
+        var (_, red) = await Post($"/api/crew/{crew}/measurements", new { metricCode = "spo2", value = 85 });
+        var alertId = red.GetProperty("data").GetProperty("alertId").GetString();
 
-        var (code, body) = await Post($"/api/crew/{crew}/packets",
-            new { packet = new { situation = "chest pain", background = "synthetic" }, note = "felt dizzy" });
+        var (code, body) = await Post($"/api/crew/{crew}/packets", new { alertId, note = "felt dizzy" });
         Assert.Equal(HttpStatusCode.OK, code);
         Assert.Equal("held", body.GetProperty("data").GetProperty("state").GetString());
         var sentAt = body.GetProperty("data").GetProperty("sentAt").GetDateTimeOffset();
@@ -179,14 +180,15 @@ public sealed class ApiTests : IDisposable
 
         var (_, state) = await Post("/api/demo/link", new { up = true, oneWayLatencySeconds = 60 });
         Assert.True(state.GetProperty("data").GetProperty("linkUp").GetBoolean());
-        Assert.Equal("in_flight", (await Get("/api/link/queue"))[0].GetProperty("state").GetString());
+        Assert.Equal("in_flight", (await Get("/api/link/queue?type=Packet"))[0].GetProperty("state").GetString());
 
         _factory.Time.Advance(TimeSpan.FromSeconds(61));
         var inbox = await Get("/api/ground/inbox?type=Packet");
         Assert.Equal("Packet", inbox[0].GetProperty("type").GetString());
         Assert.Equal(sentAt, inbox[0].GetProperty("sentAt").GetDateTimeOffset());
         Assert.Equal("felt dizzy", inbox[0].GetProperty("payload").GetProperty("note").GetString());
-        Assert.Equal("chest pain", inbox[0].GetProperty("payload").GetProperty("packet").GetProperty("situation").GetString());
+        Assert.Contains("Crew note: \"felt dizzy\"", inbox[0].GetProperty("payload").GetProperty("text").GetString());
+        Assert.Contains("Link is down", inbox[0].GetProperty("payload").GetProperty("data").GetProperty("recommendation").GetString());
     }
 
     [Fact]

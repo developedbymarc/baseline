@@ -47,6 +47,23 @@ public static class MissionClock
 
     // Mission elapsed time (MET) since launch; negative before launch.
     public static TimeSpan Met(Mission m, DateTimeOffset missionNow) => missionNow - m.LaunchDate;
+
+    // "Dd HH:MM:SS", with a leading "-" before launch.
+    public static string FormatMet(TimeSpan met)
+    {
+        var sign = met < TimeSpan.Zero ? "-" : "";
+        var abs = met.Duration();
+        return $"{sign}{(int)abs.TotalDays}d {abs.Hours:00}:{abs.Minutes:00}:{abs.Seconds:00}";
+    }
+
+    // Plain-language age for ground: "just now", "12 min", "2 h 5 min", "3 d 4 h".
+    public static string FormatAge(TimeSpan age)
+    {
+        if (age < TimeSpan.FromMinutes(1)) return "just now";
+        if (age < TimeSpan.FromHours(1)) return $"{(int)age.TotalMinutes} min";
+        if (age < TimeSpan.FromDays(1)) return age.Minutes == 0 ? $"{(int)age.TotalHours} h" : $"{(int)age.TotalHours} h {age.Minutes} min";
+        return age.Hours == 0 ? $"{(int)age.TotalDays} d" : $"{(int)age.TotalDays} d {age.Hours} h";
+    }
 }
 
 public sealed class MissionClockService(TimeProvider time)

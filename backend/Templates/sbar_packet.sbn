@@ -1,0 +1,58 @@
+BASELINE HANDOFF PACKET (SBAR) - SYNTHETIC DATA - decision support, not diagnosis
+Written {{ created_met }} MET ({{ created_utc }}) by {{ crew_name }}
+
+SITUATION
+{{ data.trigger.summary }}
+{{~ if data.trigger.alert }}
+Flag: {{ data.trigger.alert.level }} ({{ data.trigger.alert.rule_id }}) - {{ data.trigger.alert.reason }}
+{{~ end }}
+{{~ for s in data.trigger.symptoms }}
+Symptom: {{ s.symptom_code }} logged {{ s.logged_met }} MET{{ if s.note }} - "{{ s.note }}"{{ end }}
+{{~ end }}
+{{~ if note }}
+Crew note: "{{ note }}"
+{{~ end }}
+
+BACKGROUND
+Crew member: {{ data.crew.name }}, {{ data.crew.role }}, {{ data.crew.age }} y, {{ data.crew.sex }}
+Mission: {{ data.mission.name }}, {{ data.mission.environment }}, mission day {{ data.mission.mission_day }}{{ if data.mission.in_adaptation_window }} (adaptation window){{ end }}
+Link: one-way delay {{ data.mission.one_way_latency_text }}, link {{ if data.mission.link_up }}up{{ else }}DOWN{{ end }}
+Baselines (pre-flight):
+{{~ for b in data.baselines }}
+  - {{ b.summary }}
+{{~ end }}
+Readings, last 72 h:
+{{~ if (array.size data.measurements72h) == 0 }}
+  - none
+{{~ end }}
+{{~ for m in data.measurements72h }}
+  - {{ m.recorded_met }} MET  {{ m.metric_name }} {{ m.value | math.format "0.##" }} {{ m.unit }}{{ if m.level }} [{{ m.level }}]{{ end }}
+{{~ end }}
+
+ASSESSMENT
+{{~ if (array.size data.context_factors) == 0 }}
+No known context factor matched (unexplained deviation).
+{{~ else }}
+Possible contributing factors (not a diagnosis):
+{{~ for f in data.context_factors }}
+  - {{ f.rule_id }}: {{ f.message }}
+{{~ end }}
+{{~ end }}
+{{~ if data.context_outcome }}
+{{~ if data.context_outcome.downgraded }}
+Flag lowered from {{ data.context_outcome.original_level }} to {{ data.context_outcome.level }} by {{ data.context_outcome.downgraded_by | array.join ", " }}.
+{{~ end }}
+{{~ end }}
+{{~ if data.protocol }}
+Protocol: {{ data.protocol.title }} v{{ data.protocol.version }}, started {{ data.protocol.started_met }} MET
+{{~ for st in data.protocol.steps }}
+  - {{ st.at_met }} MET  {{ st.text }}{{ if st.answer }} -> {{ st.answer }}{{ end }}
+{{~ end }}
+{{~ end }}
+Follow-up questions, pre-answered:
+{{~ for q in data.follow_up }}
+  - {{ q.question }} {{ q.answer }}
+{{~ end }}
+
+RECOMMENDATION
+{{ data.recommendation }}

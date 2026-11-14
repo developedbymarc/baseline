@@ -125,7 +125,7 @@ public sealed class RolesTests : IDisposable
         {
             ("POST", "measurements") => new { metricCode = "hr_rest", value = 70 },
             ("POST", "symptoms") => new { symptomCode = "chest_pain" },
-            ("POST", "packets") => new { packet = new { situation = "x" } },
+            ("POST", "packets") => new { note = "x" },
             ("POST", "protocol-runs") => new { protocolId = "chest_pain" },
             _ => null,
         };

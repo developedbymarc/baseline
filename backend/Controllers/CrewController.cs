@@ -15,7 +15,7 @@ using backend.Services.Reminders;
 namespace backend.Controllers;
 
 public sealed record SubmitMeasurementRequest(string MetricCode, double Value, bool ConfirmImplausible = false, string? Note = null);
-public sealed record QueuePacketRequest(Guid? AlertId, JsonElement Packet, string? Note);
+public sealed record QueuePacketRequest(Guid? AlertId, Guid? RunId, string? Note);
 public sealed record LogSymptomRequest(string SymptomCode, string? Note);
 public sealed record StartProtocolRequest(string ProtocolId, Guid? AlertId);
 public sealed record ProtocolStepRequest(string NodeId, string? Answer);
@@ -32,10 +32,12 @@ public sealed record AlertDto(Guid Id, Guid CrewMemberId, Guid? MeasurementId, S
         a.ContextJson is null ? null : JsonDocument.Parse(a.ContextJson).RootElement.Clone());
 }
 
-public sealed record ProtocolRunDto(Guid Id, Guid CrewMemberId, string ProtocolId, string ProtocolVersion, Guid? AlertId, DateTimeOffset StartedAt, DateTimeOffset? EndedAt, JsonElement Steps)
+public sealed record ProtocolRunDto(Guid Id, Guid CrewMemberId, string ProtocolId, string ProtocolVersion, Guid? AlertId, DateTimeOffset StartedAt, DateTimeOffset? EndedAt, JsonElement Steps,
+    // Set only when the run starts (H1): the packet as it would be sent now.
+    backend.Services.Packets.HandoffPacket? PacketDraft = null)
 {
-    public static ProtocolRunDto From(ProtocolRun r) => new(r.Id, r.CrewMemberId, r.ProtocolId, r.ProtocolVersion, r.AlertId, r.StartedAt, r.EndedAt,
-        JsonDocument.Parse(r.StepsJson).RootElement.Clone());
+    public static ProtocolRunDto From(ProtocolRun r, backend.Services.Packets.HandoffPacket? draft = null) => new(r.Id, r.CrewMemberId, r.ProtocolId, r.ProtocolVersion, r.AlertId, r.StartedAt, r.EndedAt,
+        JsonDocument.Parse(r.StepsJson).RootElement.Clone(), draft);
 }
 
 // Crew-side API (/crew UI). Everything here works with the link down: nothing waits on ground.
@@ -43,7 +45,7 @@ public sealed record ProtocolRunDto(Guid Id, Guid CrewMemberId, string ProtocolI
 // what has been delivered through the link queue.
 [ApiController]
 [Route("api/crew")]
-public sealed class CrewController(MissionService missions, ApplicationDbContext db, HealthConfig config) : ControllerBase
+public sealed class CrewController(MissionService missions, ApplicationDbContext db, HealthConfig config, backend.Services.Packets.PacketBuilder packets) : ControllerBase
 {
     private Caller Me => Caller.From(Request);
 
@@ -131,6 +133,7 @@ public sealed class CrewController(MissionService missions, ApplicationDbContext
             alertId = r.AlertId,
             protocolId = r.Protocol?.ProtocolId,
             protocol = r.Protocol,
+            packetDraft = r.PacketDraft,
         }));
     }
 
@@ -189,12 +192,22 @@ public sealed class CrewController(MissionService missions, ApplicationDbContext
         });
     }
 
-    // H1/H2: the packet JSON comes from the packet builder (WP 4.5); stored as a LinkMessage payload.
+    // H1: preview the SBAR packet (alertId and/or runId) without queueing it, for the review screen.
+    [HttpGet("{crewId:guid}/packets/draft")]
+    public async Task<ApiResponse<backend.Services.Packets.HandoffPacket>> PacketDraft(Guid crewId, [FromQuery] Guid? alertId, [FromQuery] Guid? runId, CancellationToken ct)
+    {
+        Me.RequireCrew(crewId);
+        var m = await missions.CurrentAsync(ct);
+        await missions.CrewAsync(m, crewId, ct);
+        return ApiResponse<backend.Services.Packets.HandoffPacket>.Succeeded(await packets.BuildAsync(crewId, alertId, runId, null, ct));
+    }
+
+    // H2: build the packet from stored data at this moment, add the optional note, queue it on the link.
     [HttpPost("{crewId:guid}/packets")]
     public async Task<ApiResponse<LinkMessageDto>> QueuePacket(Guid crewId, QueuePacketRequest req, CancellationToken ct)
     {
         Me.RequireCrew(crewId);
-        var msg = await missions.QueuePacketAsync(crewId, req.AlertId, req.Packet, req.Note, ct);
+        var (msg, _) = await missions.QueuePacketAsync(crewId, req.AlertId, req.RunId, req.Note, ct);
         var m = await missions.CurrentAsync(ct);
         return ApiResponse<LinkMessageDto>.Succeeded(LinkMessageDto.From(msg, missions.Now(m)));
     }
@@ -205,7 +218,8 @@ public sealed class CrewController(MissionService missions, ApplicationDbContext
     {
         Me.RequireCrew(crewId);
         var run = await missions.StartProtocolAsync(crewId, req.ProtocolId, req.AlertId, ct);
-        return ApiResponse<ProtocolRunDto>.Succeeded(ProtocolRunDto.From(run));
+        var draft = await packets.BuildAsync(crewId, req.AlertId, run.Id, null, ct);
+        return ApiResponse<ProtocolRunDto>.Succeeded(ProtocolRunDto.From(run, draft));
     }
 
     [HttpPost("protocol-runs/{runId:guid}/steps")]

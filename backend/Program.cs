@@ -66,6 +66,8 @@ builder.Services.AddDbContext<ApplicationDbContext>((sp, options) =>
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<MissionClockService>();
 builder.Services.AddScoped<MissionService>();
+builder.Services.AddSingleton(_ => new backend.Services.Packets.PacketTemplate(backend.Services.Packets.PacketTemplate.DefaultPath));
+builder.Services.AddScoped<backend.Services.Packets.PacketBuilder>();
 builder.Services.AddScoped<DemoSeeder>();
 
 // API docs
@@ -76,6 +78,7 @@ var app = builder.Build();
 // Fail fast on bad YAML, log content warnings (never fatal), then make sure the demo mission exists.
 // `dotnet run -- reseed` wipes the SQLite file and reloads the synthetic mission.
 var healthConfig = app.Services.GetRequiredService<HealthConfig>();
+app.Services.GetRequiredService<backend.Services.Packets.PacketTemplate>(); // fail fast on a broken packet template
 var configLogger = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("HealthConfig");
 configLogger.LogInformation("Loaded metrics.yaml v{Version}, {Metrics} metrics, protocols: {Protocols}",
     healthConfig.MetricsVersion, healthConfig.Metrics.Count,

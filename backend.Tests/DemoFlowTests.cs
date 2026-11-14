@@ -98,7 +98,7 @@ public sealed class DemoFlowTests : IDisposable
         // The packet is queued: deliver_at = now + 12 min, original timestamp kept.
         var queuedAt = await MissionNow();
         var packet = await Crew(HttpMethod.Post, $"/api/crew/{_crew}/packets",
-            new { alertId, packet = new { situation = "Chest pain with HR 128" }, note = "Started 10 min before the reading" });
+            new { alertId, runId, note = "Started 10 min before the reading" });
         var packetId = packet.GetProperty("id").GetString();
         var sentAt = packet.GetProperty("sentAt").GetDateTimeOffset();
         Assert.Equal(queuedAt, sentAt);

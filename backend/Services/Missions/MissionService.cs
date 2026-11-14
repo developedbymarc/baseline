@@ -6,6 +6,7 @@ using backend.Entities;
 using backend.Services.Clock;
 using backend.Services.Engines;
 using backend.Services.Link;
+using backend.Services.Packets;
 using backend.Services.Reminders;
 
 namespace backend.Services.Missions;
@@ -31,12 +32,14 @@ public sealed record SubmitMeasurementResult(
     ContextResult? Context,
     Guid? AlertId,
     ProtocolOffer? Protocol,
-    bool NeedsConfirmation);
+    bool NeedsConfirmation,
+    // H1: built automatically when a reading goes red; queued only when the crew sends it.
+    HandoffPacket? PacketDraft = null);
 
 public sealed record LogSymptomResult(Guid SymptomLogId, Guid? AlertId, ProtocolOffer? Protocol);
 
 // The demo runs a single mission; "current mission" is the only one in the DB.
-public sealed class MissionService(ApplicationDbContext db, HealthConfig config, MissionClockService clock)
+public sealed class MissionService(ApplicationDbContext db, HealthConfig config, MissionClockService clock, PacketBuilder packets)
 {
     // Same JSON shape as the API responses (camelCase, enums as names) for everything stored or sent over the link.
     internal static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web)
@@ -194,7 +197,10 @@ public sealed class MissionService(ApplicationDbContext db, HealthConfig config,
         }
 
         await db.SaveChangesAsync(ct);
-        return new SubmitMeasurementResult(measurement, plausibility, status, context, alertId, offer, NeedsConfirmation: false);
+        var draft = alertId is { } aid && status.Level == StatusLevel.Red
+            ? await packets.BuildAsync(crew.Id, aid, null, null, ct)
+            : null;
+        return new SubmitMeasurementResult(measurement, plausibility, status, context, alertId, offer, NeedsConfirmation: false, draft);
     }
 
     // ---------- Context factors (WP 4.3, I1-I4) ----------
@@ -465,19 +471,18 @@ public sealed class MissionService(ApplicationDbContext db, HealthConfig config,
         await db.SaveChangesAsync(ct);
     }
 
-    // H1/H2: the handoff packet is a LinkMessage payload (type = packet) linked to its alert.
-    public async Task<LinkMessage> QueuePacketAsync(Guid crewId, Guid? alertId, JsonElement packet, string? note, CancellationToken ct = default)
+    // H1/H2: the SBAR packet is built on the server from stored data and queued as a LinkMessage payload
+    // (type = packet, alert_id). SentAt = the packet's creation time.
+    public async Task<(LinkMessage Message, HandoffPacket Packet)> QueuePacketAsync(
+        Guid crewId, Guid? alertId, Guid? runId, string? note, CancellationToken ct = default)
     {
         var mission = await CurrentAsync(ct);
-        var crew = await CrewAsync(mission, crewId, ct);
-        if (alertId is { } a && !await db.Alerts.AnyAsync(x => x.Id == a && x.CrewMemberId == crew.Id, ct))
-            throw new ApiProblem(404, "NO_ALERT", $"Alert {a} not found for this crew member.");
-
-        var now = Now(mission);
-        var payload = JsonSerializer.Serialize(new { crewMemberId = crew.Id, crewName = crew.Name, createdAt = now, note, packet }, Json);
-        var msg = LinkQueue.Create(mission, now, LinkDirection.CrewToGround, LinkMessageType.Packet, payload, alertId);
+        await CrewAsync(mission, crewId, ct);
+        var packet = await packets.BuildAsync(crewId, alertId, runId, note, ct);
+        var msg = LinkQueue.Create(mission, packet.CreatedAt, LinkDirection.CrewToGround, LinkMessageType.Packet,
+            JsonSerializer.Serialize(packet, Json), packet.AlertId);
         db.LinkMessages.Add(msg);
         await db.SaveChangesAsync(ct);
-        return msg;
+        return (msg, packet);
     }
 }
