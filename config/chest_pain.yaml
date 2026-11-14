@@ -1,0 +1,248 @@
+# =====================================================================================
+# BASELINE: config/chest_pain.yaml   (owner: Serge)   DRAFT v0.1
+# =====================================================================================
+# WHAT THIS FILE IS
+#   The chest pain emergency protocol, written as a decision tree. The app has no
+#   chest-pain questions in its code: This file is read and
+#   shows ONE step per screen with large buttons. Changing a step = editing this file.
+#
+# HOW TO READ IT
+#   The file has three parts:
+#     1. Header      who/what/when the protocol is for (id, title, version, trigger...)
+#     2. tree_yaml   the steps ("nodes"), each linked to the next by "next" ids
+#     3. sources     the citations; every node points to them with "src"
+#
+# SAFETY
+#   Decision support, NOT diagnosis. All crew data in the app is SYNTHETIC.
+#   Steps marked "review: true" must be approved by a flight surgeon or medical reviewer
+#   before any real use.
+#
+# NODE TYPES (every node has "id", "type", "text")
+#   question  asks something; each option has a "next" (where to go for that answer)
+#   action    tells the crew member to do something; has one "next"
+#   measure   asks the app to read vital signs (metric codes from metrics.yaml); one "next"
+#   end       final screen; has NO "next"
+#
+# OPTIONAL NODE FIELDS
+#   src            ids from the sources block below. "team" = our own choice, no source yet
+#   log_answer     save the answer in the protocol log, so it goes into the SBAR packet
+#   log            save "this step was done" with a timestamp (story F3)
+#   timer_s        show a countdown (seconds) before the crew can continue
+#   build_packet   auto-build the SBAR handoff packet for ground (story H1)
+#   notify_ground  show/send the "notify ground" action (story F3)
+#   review         true = needs medical review before real use
+#   note           a comment for people editing the file (not shown to the crew)
+# =====================================================================================
+
+# --- HEADER ------------------------------------------------------------------------
+
+id: chest_pain                       # unique name the app uses to find this protocol
+title: Chest pain / suspected cardiac event   # title shown at the top of every screen
+version: 0.1                         # bump this whenever a step or source changes (audit trail)
+language: en                         # language of the text below
+start: n_start                       # first node the runner opens; must match a node id
+
+disclaimer: >-                       # shown on the protocol screens (story F5)
+  BASELINE gives decision support from public first-aid guidance. It does not diagnose.
+  Most chest pain is not cardiac, but it cannot be told apart at the bedside, so act and notify ground.
+
+trigger:                             # when the app offers to open this protocol (story E1)
+  - red result on hr_rest, bp_sys, bp_dia or spo2 together with a chest symptom
+  - crew member logs "chest pain" in the symptom checklist (story C6)
+
+latency_rule: >-                     # how the protocol behaves when the link to ground is slow (story E3)
+  When one-way link latency is over the configured threshold (default 5 min) or the link is down,
+  show this on-board protocol first and "notify ground" second.
+
+# --- THE TREE ----------------------------------------------------------------------
+# Flow in one line:
+#   start -> (CPR?) -> rest -> vitals -> duration -> other symptoms -> aspirin check
+#         -> aspirin / no aspirin -> notify ground -> recheck -> worse? -> loop or hold
+
+tree_yaml:
+
+  # 1. First safety check. A "yes" skips everything else and goes straight to CPR.
+  - id: n_start
+    type: question
+    text: "Is the crew member unresponsive or not breathing normally?"
+    options:
+      - { label: "Yes", next: n_cpr }     # life-threatening: jump to CPR end node
+      - { label: "No",  next: n_rest }    # conscious and breathing: continue the protocol
+    src: [S1]                              # MedlinePlus: CPR/AED when unresponsive and not breathing
+
+  # 2. Emergency end: the app does not teach CPR; it points to the on-board checklist.
+  - id: n_cpr
+    type: end                              # end node: nothing comes after it
+    outcome: emergency_cpr                 # label saved in the log / packet
+    text: >-
+      Follow the on-board CPR / defibrillator procedure now. Use the AED's own instructions.
+      Notify ground immediately (packet is sent automatically).
+    notify_ground: true                    # ground is alerted at once
+    build_packet: true                     # SBAR packet is built and queued
+    src: [S1]
+    review: true                           # CPR in microgravity is outside this app: cite the on-board medical checklist here
+
+  # 3. First action: stop, sit, calm down, loosen clothing.
+  - id: n_rest
+    type: action
+    text: >-
+      Stop what you are doing. Sit or secure yourself, stay calm, and loosen tight clothing.
+      Do not be left alone.
+    next: n_vitals
+    src: [S1]                              # MedlinePlus: sit, rest, stay calm, loosen clothing, do not leave alone
+
+  # 4. The app reads the numbers so ground sees them in the packet.
+  - id: n_vitals
+    type: measure
+    text: "Take heart rate, blood pressure and SpO2 now. The app will record them."
+    metrics: [hr_rest, bp_sys, bp_dia, spo2]   # codes from metrics.yaml; the app opens the entry screens
+    next: n_duration
+    src: [team]                            # team choice: gives ground the readings; not a source-backed step
+
+  # 5. Logging question. Both answers lead to the same place (see "note" on the next node).
+  - id: n_duration
+    type: question
+    text: "Has the chest discomfort lasted more than a few minutes, or does it go away and come back?"
+    options:
+      - { label: "Yes", next: n_other }
+      - { label: "No",  next: n_other }
+    log_answer: true                       # answer goes into the packet as the duration/onset detail
+    src: [S4]                              # guideline: chest discomfort has many forms, so ask about duration
+
+  # 6. Second logging question: other warning signs.
+  - id: n_other
+    type: question
+    text: >-
+      Any of these: shortness of breath, cold sweat, nausea, lightheadedness, or pain/pressure
+      in the arm, shoulder, neck, jaw, back or upper abdomen?
+    options:
+      - { label: "Yes", next: n_aspirin_q }
+      - { label: "No",  next: n_aspirin_q }
+    log_answer: true                       # goes to ground as a pre-answered follow-up (story H3)
+    src: [S2, S3, S4]
+    note: >-
+      Both answers lead to the same node on purpose: the guidance says do not try to work out
+      the cause yourself. The answers are recorded for ground, not used to downgrade the response.
+
+  # 7. Safety check before the aspirin step.
+  - id: n_aspirin_q
+    type: question
+    text: "Aspirin allergy, active bleeding, or told by a doctor not to take aspirin?"
+    options:
+      - { label: "Yes or not sure", next: n_no_aspirin }   # when unsure, take the safer path
+      - { label: "No",              next: n_aspirin }
+    src: [S1, S5]                          # aspirin only if not allergic and no dangerous condition
+
+  # 8a. Aspirin path (only if the check above was clear).
+  - id: n_aspirin
+    type: action
+    text: >-
+      If you can chew and swallow safely, chew one plain (not coated) 325 mg aspirin,
+      or the equivalent 162-325 mg. Do not give anything else by mouth unless a heart medicine
+      was already prescribed to this crew member.
+    next: n_notify
+    log: true                              # log that aspirin was taken, with time and dose
+    review: true                           # flight surgeon must approve dose and wording for the on-board medical kit
+    src: [S1, S5]                          # S1: nothing by mouth otherwise; S5: 162-325 mg chewed
+
+  # 8b. No-aspirin path.
+  - id: n_no_aspirin
+    type: action
+    text: "Do not take aspirin. Do not give anything by mouth unless a heart medicine was already prescribed."
+    next: n_notify
+    log: true                              # log that aspirin was withheld (ground needs to know)
+    src: [S1]
+
+  # 9. Hand off to ground.
+  - id: n_notify
+    type: action
+    text: >-
+      Review the handoff packet the app has built (readings, answers, steps and times).
+      Add a short note if you can, then send it to ground.
+    next: n_recheck
+    build_packet: true                     # SBAR packet is built from this protocol's log
+    notify_ground: true                    # packet is queued with the simulated delay
+    src: [S2, S6]                          # S2: act and get help; S6: NASA on-board support is limited
+
+  # 10. Re-measure after waiting.
+  - id: n_recheck
+    type: measure
+    text: "Rest and wait. Retake heart rate, blood pressure and SpO2."
+    metrics: [hr_rest, bp_sys, bp_dia, spo2]
+    timer_s: 600                           # 600 s = 10 minutes (team choice; our spec story C4 uses 10 min as its retake example)
+    next: n_worse
+    src: [team]
+
+  # 11. Is it getting worse? "Yes" restarts the protocol.
+  - id: n_worse
+    type: question
+    text: "Is it worse, new symptoms, fainting, or any red reading?"
+    options:
+      - { label: "Yes", next: n_start }   # loops back to the first safety check
+      - { label: "No",  next: n_hold }
+    src: [S2]
+
+  # 12. Final screen: keep resting and stay in contact with ground.
+  - id: n_hold
+    type: end
+    outcome: hold_and_wait_for_ground      # label saved in the log / packet
+    text: >-
+      Keep resting and do not wait for it to pass: stay in contact with ground and answer their
+      follow-up questions. Restart this protocol at once if symptoms return or change.
+    src: [S1, S2]
+
+# --- SOURCES -----------------------------------------------------------------------
+# Each entry: id (used in "src" above), who published it, title, link, what we took from it,
+# and "opened" = did a team member actually read the page (false = only seen in a search result).
+
+sources:
+
+  - id: S1                             # used by the CPR, rest, aspirin and hold steps
+    publisher: MedlinePlus (U.S. National Library of Medicine), content by A.D.A.M., Inc.
+    title: Heart attack first aid
+    url: https://medlineplus.gov/ency/article/000063.htm
+    note: Call emergency number; sit, rest, loosen clothing; aspirin only if not allergic and no dangerous condition; nothing by mouth unless a prescribed heart medicine; CPR/AED if unresponsive and not breathing.
+    reviewed: 2024-10-07               # last reviewed date shown on the page
+    checked: 2026-11-14                # date we checked it
+    opened: true
+
+  - id: S2                             # "call for help, do not self-diagnose"
+    publisher: American Heart Association News
+    title: New guidelines help doctors diagnose chest pain - but only if you act
+    url: https://heart.org/en/news/2021/10/28/new-guidelines-help-doctors-diagnose-chest-pain-but-only-if-you-act
+    note: Sudden chest pain - call for help, do not self-diagnose, go to the nearest hospital; discomfort can be pressure or tightness in shoulders, arms, neck, back, upper abdomen or jaw; most chest pain is not cardiac.
+    checked: 2026-11-14
+    opened: true
+
+  - id: S3                             # the 2021 guideline's key points
+    publisher: American College of Cardiology
+    title: 2021 AHA/ACC Chest Pain Guideline Perspectives (key points)
+    url: https://acc.org/latest-in-cardiology/ten-points-to-remember/2021/10/27/14/06/2021-guideline-for-chest-pain-gl_chestpain
+    note: Expedite evaluation of acute chest pain; patient education to call 9-1-1. Source guideline - Gulati M, et al. 2021 AHA/ACC/ASE/CHEST/SAEM/SCCT/SCMR Guideline for the Evaluation and Diagnosis of Chest Pain. J Am Coll Cardiol / Circulation 2021.
+    checked: 2026-11-14
+    opened: false                      # seen in a search result only: open before the 4:30 deadline
+
+  - id: S4                             # what counts as a chest-pain symptom
+    publisher: ACC / AHA
+    title: 2021 Chest Pain Guideline pocket guide (key points)
+    url: https://cdn-corpweb.heartflow.com/assets/docs/ACC_AHA_Guidelines_ChestPain_PocketGuide_2021.pdf
+    note: Pain, pressure, tightness or discomfort in chest, shoulders, arms, neck, back, upper abdomen or jaw, plus shortness of breath and fatigue, are anginal equivalents. Replace with the guideline itself (doi 10.1161/CIR.0000000000001029).
+    checked: 2026-11-14
+    opened: false                      # search result only, third-party host
+
+  - id: S5                             # aspirin dose
+    publisher: AHA guideline excerpt (Guideline Central eGuideline)
+    title: AHA guidelines bundle, prehospital treatment excerpt
+    url: https://eguideline.guidelinecentral.com/i/129442/7
+    note: Chewed aspirin 162-325 mg for suspected ACS unless contraindicated or already taken; reasonable to advise those without aspirin allergy to chew 162-325 mg while awaiting EMS.
+    checked: 2026-11-14
+    opened: false                      # search result only: confirm against the current AHA/ACC guideline
+
+  - id: S6                             # why on-board steps come first
+    publisher: NASA Human Health and Performance
+    title: Risk of Adverse Health Outcomes and Decrements in Performance due to Inflight Medical Conditions
+    url: https://www.nasa.gov/directorates/esdmd/hhp/risk-of-adverse-health-outcomes-and-decrements-in-performance-due-to-inflight-medical-conditions
+    note: All human spaceflight needs some in-mission medical support; the ISS medical kit is basic; crew get basic medical training; a Medical Decision Support System is being studied for crews out of direct contact with Earth.
+    updated: 2025-07-08
+    checked: 2026-11-14
+    opened: true
