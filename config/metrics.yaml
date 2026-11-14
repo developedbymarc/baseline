@@ -1,182 +1,242 @@
 # BASELINE: config/metrics.yaml  (work package 2.1, owner: Serge)
-# v1.1. All data in the app is SYNTHETIC. BASELINE is decision support, not diagnosis.
+# v1.2. All data in the app is SYNTHETIC. BASELINE is decision support, not diagnosis.
 #
-# Status rules (decided; Mark's status engine 4.2 reads this):
-#   green  = inside warn_low..warn_high
-#   yellow = between warn and crit limits
-#   red    = beyond crit_low / crit_high
+# Status rules (decided; A's status engine 4.2 reads this):
+#   A value exactly ON a limit counts as INSIDE that band.
+#   green  = warn_low <= value <= warn_high
+#   yellow = beyond a warn limit but not beyond the crit limit (crit_low <= value < warn_low, or warn_high < value <= crit_high)
+#   red    = value < crit_low or value > crit_high
 #   final status = worse of (absolute limits, personal z-score)
 #   normal_low/normal_high = shaded healthy band on trend charts only
-#   null = no limit on that side; the engine skips it
+#   null   = no limit on that side; the engine skips it
 #   plausible_min/max = typo check only (story C3), deliberately wide
+#   sd_pop = population SD used for the shrunk baseline SD when n < 10 (spec section 8). null = no cited value yet, so the person's own SD is used.
+#   A single red BP or SpO2 reading first triggers "retake".
+#
+# Every metric has a sources list. Each entry names the fields it covers as a LIST.
+# publisher: team = our own starting value, no external source yet (needs review before real use).
 
-version: 1
+version: "1.2"
 
 metrics:
-  - code: hr_rest # heart beats per minute while calm and still
+  - code: hr_rest
     name: Resting heart rate
     unit: bpm
-    plausible_min: 25        # team: below any survivable resting rate seen in athletes (Mayo: ~40)
-    plausible_max: 220       # team: age-based max HR formula "220 minus age" tops out near here
-    normal_low: 60           # cited
-    normal_high: 100         # cited
-    warn_low: 50             # team: Mayo says below 60 is only a flag if NOT a trained athlete
-    warn_high: 100           # cited: above 100 at rest
-    crit_low: 40             # cited-ish: Mayo, very fit athletes may be near 40
-    crit_high: 120           # team: 20 above the cited limit
+    plausible_min: 25
+    plausible_max: 220
+    normal_low: 60
+    normal_high: 100
+    warn_low: 50             # below 60 is only a flag if NOT a trained athlete (Mayo); 50 is our margin
+    warn_high: 100           # 100 is green; above 100 at rest is tachycardia
+    crit_low: 40             # Mayo: very fit athletes may be near 40
+    crit_high: 120
     z_warn: 1.5
     z_crit: 2.5
+    sd_pop: null             # no cited value yet
     polarity: both
     instructions_md: howto/hr_rest.md
     sources:
-      - field: normal_low, normal_high, warn_high, crit_low
+      - fields: [normal_low, normal_high, warn_high, crit_low]
         publisher: Mayo Clinic
         title: "Heart rate: What's normal?"
         url: https://www.mayoclinic.org/heart-rate/expert-answers/faq-20057979
         note: Adult resting 60-100 bpm; very fit athletes closer to 40; see a professional if regularly above 100 or, for non-athletes, often below 60.
         checked: 2026-11-14
+        opened: true
+      - fields: [plausible_min, plausible_max, warn_low, crit_high, z_warn, z_crit, sd_pop]
+        publisher: team
+        title: Team starting values
+        note: z limits are the spec section 8 starting values. No external source yet.
 
-  - code: bp_sys # systolic blood preasure, the top number, pressure when the heart pumps
+  - code: bp_sys
     name: Systolic blood pressure
     unit: mmHg
-    plausible_min: 50        # team
-    plausible_max: 260       # team
-    normal_low: 90           # cited
-    normal_high: 120         # cited
-    warn_low: 90             # cited (general guideline)
-    warn_high: 130           # cited: stage 1 hypertension
-    crit_low: 80             # team: about 10 below the cited low line
-    crit_high: 140           # cited: stage 2 hypertension (changed from 180 so the yellow band is not 130-180)
+    plausible_min: 50
+    plausible_max: 260
+    normal_low: 90
+    normal_high: 120
+    warn_low: 90             # 90 is green; below 90 is generally "low" (Mayo)
+    warn_high: 129           # AHA stage 1 starts at 130, so 130 is yellow
+    crit_low: 80
+    crit_high: 139           # AHA stage 2 starts at 140, so 140 is red
     z_warn: 1.5
     z_crit: 2.5
+    sd_pop: 19.34            # NHANES 2017-2020 adults, via cardioStatsUSA nhanes_data (see sources)
     polarity: both
     instructions_md: howto/bp.md
     sources:
-      - field: normal_high, warn_high, crit_high
+      - fields: [normal_high, warn_high, crit_high]
         publisher: American Heart Association
         title: Understanding Blood Pressure Readings
         url: https://heart.org/bplevels
         note: Normal below 120; stage 1 130-139; stage 2 140 or higher; crisis above 180 (and/or 120 diastolic).
         checked: 2026-11-14
-      - field: normal_low, warn_low
+        opened: true
+      - fields: [normal_low, warn_low]
         publisher: Mayo Clinic
         title: Low blood pressure (hypotension)
         url: https://www.mayoclinic.org/diseases-conditions/low-blood-pressure/symptoms-causes/syc-20355465
         note: In general, low is below 90/60 mm Hg; symptoms matter more than the number.
         checked: 2026-11-14
+        opened: true
+      - fields: [sd_pop]
+        publisher: cardioStatsUSA (JHS-HWG) documentation of NHANES data
+        title: nhanes_data reference
+        url: https://jhs-hwg.github.io/cardioStatsUSA/reference/nhanes_data.html
+        note: Mean systolic BP 124.06 mmHg, SD 19.34, n=56,017 (NHANES-derived, adults of all ages). Between-person SD, wider than one person's day-to-day SD. Seen in a search result; confirm against the NHANES source.
+        checked: 2026-11-14
+        opened: false
+      - fields: [plausible_min, plausible_max, crit_low, z_warn, z_crit]
+        publisher: team
+        title: Team starting values
+        note: No external source yet.
 
-  - code: bp_dia # diastolic blood pressure, the bottom number, pressure when the heart rests
+  - code: bp_dia
     name: Diastolic blood pressure
     unit: mmHg
-    plausible_min: 30        # team
-    plausible_max: 150       # team
-    normal_low: 60           # cited
-    normal_high: 80          # cited
-    warn_low: 60             # cited (general guideline)
-    warn_high: 80            # cited: stage 1 starts at 80
-    crit_low: 50             # team
-    crit_high: 90            # cited: stage 2 starts at 90
+    plausible_min: 30
+    plausible_max: 150
+    normal_low: 60
+    normal_high: 80
+    warn_low: 60             # 60 is green; below 60 is generally "low" (Mayo)
+    warn_high: 79            # AHA stage 1 starts at 80, so 80 is yellow
+    crit_low: 50
+    crit_high: 89            # AHA stage 2 starts at 90, so 90 is red
     z_warn: 1.5
     z_crit: 2.5
+    sd_pop: 12.10            # NHANES 2017-2020 adults, via cardioStatsUSA nhanes_data (see sources)
     polarity: both
     instructions_md: howto/bp.md
     sources:
-      - field: normal_high, warn_high, crit_high
+      - fields: [normal_high, warn_high, crit_high]
         publisher: American Heart Association
         title: Understanding Blood Pressure Readings
         url: https://heart.org/bplevels
         note: Normal below 80; stage 1 80-89; stage 2 90 or higher; crisis above 120.
         checked: 2026-11-14
-      - field: normal_low, warn_low
+        opened: true
+      - fields: [normal_low, warn_low]
         publisher: Mayo Clinic
         title: Low blood pressure (hypotension)
         url: https://www.mayoclinic.org/diseases-conditions/low-blood-pressure/symptoms-causes/syc-20355465
         note: In general, low is below 90/60 mm Hg.
         checked: 2026-11-14
+        opened: true
+      - fields: [sd_pop]
+        publisher: cardioStatsUSA (JHS-HWG) documentation of NHANES data
+        title: nhanes_data reference
+        url: https://jhs-hwg.github.io/cardioStatsUSA/reference/nhanes_data.html
+        note: Mean diastolic BP 70.34 mmHg, SD 12.10, n=56,017 (NHANES-derived, adults of all ages). Between-person SD. Seen in a search result; confirm against the NHANES source.
+        checked: 2026-11-14
+        opened: false
+      - fields: [plausible_min, plausible_max, crit_low, z_warn, z_crit]
+        publisher: team
+        title: Team starting values
+        note: No external source yet.
 
   - code: temp
     name: Body temperature
     unit: "°C"
-    plausible_min: 30        # team
-    plausible_max: 43        # team
-    normal_low: 36.1         # cited
-    normal_high: 37.2        # cited
-    warn_low: 36.1           # cited
-    warn_high: 37.5          # cited: MedlinePlus, adult probably has a fever above 37.2-37.5 °C
-    crit_low: 35.0           # cited: hypothermia
-    crit_high: 38.0          # cited: fever
+    plausible_min: 30
+    plausible_max: 43
+    normal_low: 36.1
+    normal_high: 37.2
+    warn_low: 36.1           # 36.1 is green
+    warn_high: 37.5          # 37.5 is green; MedlinePlus: adult probably has a fever above 37.2-37.5
+    crit_low: 35.0           # 35.0 is yellow; red below 35.0 (hypothermia)
+    crit_high: 38.0          # 38.0 is yellow; red above 38.0 ("over 38 °C (100.4 °F)" is fever)
     z_warn: 1.5
     z_crit: 2.5
+    sd_pop: null             # no cited value yet
     polarity: both
     instructions_md: howto/temp.md
     sources:
-      - field: normal_low, normal_high, crit_high
+      - fields: [normal_low, normal_high, warn_low, crit_high]
         publisher: MedlinePlus (U.S. National Library of Medicine)
         title: Body temperature norms
         url: https://medlineplus.gov/ency/article/001982.htm
         note: Normal 36.1-37.2 °C (97-99 °F); over 38 °C (100.4 °F) most often means fever. Seen in a search result; page itself not opened.
         checked: 2026-11-14
-      - field: warn_high
+        opened: false
+      - fields: [warn_high]
         publisher: MedlinePlus (U.S. National Library of Medicine)
         title: Fever
         url: https://www.nlm.nih.gov/medlineplus/ency/article/003090.htm
         note: An adult probably has a fever above 37.2-37.5 °C (99-99.5 °F) depending on time of day. Seen in a search result; page itself not opened.
         checked: 2026-11-14
-      - field: crit_low
+        opened: false
+      - fields: [crit_low]
         publisher: Cedars-Sinai
         title: Hypothermia
         url: https://www.cedars-sinai.org/health-topics/hypothermia
         note: Hypothermia is below 35 °C (95 °F), a medical emergency.
         checked: 2026-11-14
+        opened: true
+      - fields: [plausible_min, plausible_max, z_warn, z_crit, sd_pop]
+        publisher: team
+        title: Team starting values
+        note: No external source yet.
 
-  - code: spo2 # share of the blood carrying oxygen, from a fingertip sensor
+  - code: spo2
     name: Blood oxygen saturation
     unit: "%"
-    plausible_min: 50        # team: oximeters are least reliable below 80 (MedlinePlus magazine); 50 only filters typos
-    plausible_max: 100       # physical maximum
-    normal_low: 95           # cited
-    normal_high: 100         # cited
-    warn_low: 95             # cited
+    plausible_min: 50
+    plausible_max: 100
+    normal_low: 95
+    normal_high: 100
+    warn_low: 95             # 95 is green
     warn_high: null
-    crit_low: 92             # cited: contact a provider at 92% or lower
+    crit_low: 93             # 93 is yellow; 92 or lower is red (MedlinePlus: contact a provider at 92% or lower)
     crit_high: null
     z_warn: 1.5
     z_crit: 2.5
+    sd_pop: null             # no cited value yet
     polarity: low
     instructions_md: howto/spo2.md
     sources:
-      - field: normal_low, normal_high, warn_low, crit_low
+      - fields: [normal_low, normal_high, warn_low, crit_low]
         publisher: MedlinePlus (U.S. National Library of Medicine)
         title: "Pulse Oximetry: MedlinePlus Medical Test"
         url: https://medlineplus.gov/lab-tests/pulse-oximetry/
         note: Normal 95-100%; contact provider at 92% or lower; seek immediate attention at 88% or lower (use this in the alert text); results 2-4% off.
         checked: 2026-11-14
+        opened: true
+      - fields: [plausible_min, plausible_max, z_warn, z_crit, sd_pop]
+        publisher: team
+        title: Team starting values
+        note: No external source yet.
 
-  - code: sleep_h # hours slept the previous night
+  - code: sleep_h
     name: Sleep duration
     unit: h
-    plausible_min: 0         # team
-    plausible_max: 16        # team
-    normal_low: 7            # cited
-    normal_high: 9           # cited (CDC 61-64 range); display only
-    warn_low: 7              # cited
+    plausible_min: 0
+    plausible_max: 16
+    normal_low: 7
+    normal_high: 9
+    warn_low: 7              # 7 is green ("7 or more hours")
     warn_high: null
-    crit_low: 5              # team: no source; 5 is well under the CDC floor
+    crit_low: 5              # 5 is yellow; red below 5
     crit_high: null
     z_warn: 1.5
     z_crit: 2.5
+    sd_pop: null             # no cited value yet
     polarity: low
     instructions_md: howto/sleep.md
     sources:
-      - field: normal_low, normal_high, warn_low
+      - fields: [normal_low, normal_high, warn_low]
         publisher: CDC
         title: About Sleep
         url: https://www.cdc.gov/sleep/about/index.html
         note: Adults 18-60 "7 or more hours"; 61-64 "7-9 hours"; 65+ "7-8 hours". Updated 2024-05-15.
         checked: 2026-11-14
+        opened: true
+      - fields: [plausible_min, plausible_max, crit_low, z_warn, z_crit, sd_pop]
+        publisher: team
+        title: Team starting values
+        note: No external source yet.
 
   # Context inputs: no status limits. Needed by context rules missed_exercise and high_stress
-  # and the planted sleep/mood anomaly. Self-reported, so not health thresholds and nothing to cite.
+  # and the planted sleep/mood anomaly. Self-reported, so not health thresholds.
   - code: mood
     name: Mood (self-rating)
     unit: "1-5"
@@ -190,10 +250,16 @@ metrics:
     crit_high: null
     z_warn: null
     z_crit: null
+    sd_pop: null
     polarity: none
     instructions_md: howto/mood.md
+    sources:
+      - fields: [plausible_min, plausible_max]
+        publisher: team
+        title: Team starting values
+        note: Self-rating scale of our own design.
 
-  - code: exercise_min # minutes of exercise that day.H
+  - code: exercise_min
     name: Exercise (minutes)
     unit: min
     plausible_min: 0
@@ -206,5 +272,11 @@ metrics:
     crit_high: null
     z_warn: null
     z_crit: null
+    sd_pop: null
     polarity: none
     instructions_md: howto/exercise.md
+    sources:
+      - fields: [plausible_min, plausible_max]
+        publisher: team
+        title: Team starting values
+        note: Typo-check range of our own choice.

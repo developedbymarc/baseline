@@ -1,0 +1,285 @@
+# =====================================================================================
+# BASELINE: config/context_rules.yaml   (work package 2.3, owner: Serge)   DRAFT v0.3
+# =====================================================================================
+# WHAT THIS FILE IS
+#   The list of "known confounders": things that can move a vital sign without anything
+#   being wrong (short sleep, first days in space, fever...). When a metric comes back
+#   yellow or red, A's context rules engine (4.3) checks each rule below against the last
+#   days of data. Rules that match are shown next to the flag with a one-line reason and a
+#   source (stories I1, I2). A flight surgeon can edit or disable rules here (I3).
+#
+# SAFETY
+#   Decision support, NOT diagnosis. A factor is a POSSIBLE contributor, never a diagnosis.
+#   A flag is never hidden: a downgraded flag is still logged and shown (I4).
+#   All crew data in the app is SYNTHETIC. Rules marked "review: true" need medical
+#   review before real use.
+#
+# FIELDS OF EACH RULE
+#   id                 unique name, used in logs and reports (I5)
+#   enabled            false = the engine skips the rule (story I3)
+#   applies_to         metric codes (from metrics.yaml) the rule can explain
+#   direction          high = explains a value ABOVE normal, low = BELOW, any = either
+#   condition          machine-readable test, see CONDITION TYPES
+#   message            one line shown to the crew member (story I2)
+#   source             ids from the sources block at the bottom ("team" = our choice)
+#   severity_modifier  0 = show only; -1 = may lower the flag by one level (story I4)
+#   review             true = needs medical review before real use
+#
+# CONDITION TYPES (the engine needs to implement these 4)
+#   metric_count   metric, op (lt|gt|lte|gte), value, window_days, min_count
+#                  counts DISTINCT MISSION DAYS, not readings: each mission day counts once if its
+#                  latest reading passes the test. window_days = that many mission days, counting
+#                  today. True if at least min_count days pass.
+#   mission_day    op, value   true if the current mission day passes the test
+#   environment    kind (co2_mmhg | kp | solar_particle_event), op + value (not for solar_particle_event), window_h
+#                  true if the environment log has a matching entry in the window
+#                  (co2_mmhg: partial pressure of CO2 in mmHg; kp: planetary Kp index;
+#                   solar_particle_event: an active event, no value needed)
+#   metric_recent  metric, op, value, window_h
+#                  true if any measurement in the last window_h hours passes the test
+#   All windows count back from the MISSION clock, not the wall clock.
+#
+# POLICY (applies to all rules; kept here so a reviewer sees it in one place)
+#   max_total_downgrade       several matching rules never stack: at most one level in total
+#   downgrade_only_from       only a yellow flag can be lowered; a red flag keeps its color
+#                             and still shows the factors (see NOTE TO A below)
+#   never_downgrade_metrics   these are never lowered, whatever rule matches
+#
+# NOTE TO A: spec story I4 and Fig. 4A say "downgrade one level". Letting a red BP or
+#   heart rate drop to yellow on a guess of "benign" is unsafe, so this file narrows it
+#   to yellow -> green. If the team prefers the plain spec rule, set downgrade_only_from
+#   to red and update the spec/diagram wording.
+# =====================================================================================
+
+version: "0.3"            # quoted so it stays text; bump on every change to a rule or source
+language: en
+
+policy:
+  max_total_downgrade: 1
+  downgrade_only_from: yellow
+  never_downgrade_metrics: [temp, spo2]   # fever and low oxygen are never "explained away"
+
+# --- THE RULES ---------------------------------------------------------------------
+
+rules:
+
+  # 1. Short sleep. Poor sleep raises BP and heart rate (controlled studies, small).
+  - id: short_sleep
+    enabled: true
+    applies_to: [hr_rest, bp_sys, bp_dia]
+    direction: high
+    condition:
+      type: metric_count
+      metric: sleep_h
+      op: lt
+      value: 6                    # team value: under 6 h counts as a short night
+      window_days: 3
+      min_count: 2                # at least 2 of the last 3 nights; one bad night alone is not enough (team choice)
+    message: "Short sleep (under 6 h on at least 2 of the last 3 nights) can raise blood pressure and resting heart rate."
+    source: [C1, C2]
+    severity_modifier: -1
+    review: false
+
+  # 2. Missed exercise. Deconditioning starts within days in space. Show-only: it is a
+  #    reason to look, not a reason to relax a flag.
+  - id: missed_exercise
+    enabled: true
+    applies_to: [hr_rest]
+    direction: high
+    condition:
+      type: metric_count
+      metric: exercise_min
+      op: lt
+      value: 30                   # team value: under 30 min counts as a missed session
+      window_days: 3
+      min_count: 2
+    message: "Exercise was under 30 min on at least 2 of the last 3 days. In space, fitness drops within days without it."
+    source: [C3, team]
+    severity_modifier: 0
+    review: true
+
+  # 3. Adaptation window. Fluid shifts and early cardiac changes in the first days of weightlessness.
+  #    Show-only: the sources confirm the fluid shift and early cardiac changes, but none gives a
+  #    heart rate or blood pressure effect, so there is no basis to lower a flag.
+  - id: adaptation_window
+    enabled: true
+    applies_to: [hr_rest, bp_sys, bp_dia]
+    direction: any
+    condition:
+      type: mission_day
+      op: lte
+      value: 14                   # spec value: first 14 days of the mission
+    message: "You are in the first 14 days of the mission. Fluid shifts to the upper body and early heart changes occur while you adapt; the effect on your readings is possible but not established."
+    source: [C4, C5, C11]
+    severity_modifier: 0
+    review: true                  # the sources support adaptation, not the exact 14-day figure
+
+  # 4. Space weather, as two rules (one condition each): a Kp reading, or an active solar
+  #    particle event. Show-only: the sources cover radiation and storms, not effects on vitals.
+  - id: space_weather_kp
+    enabled: true
+    applies_to: [hr_rest, bp_sys, bp_dia, sleep_h]
+    direction: any
+    condition:
+      type: environment
+      kind: kp
+      op: gte
+      value: 5                    # NOAA G1 (minor geomagnetic storm) starts at Kp 5
+      window_h: 24
+    message: "A geomagnetic storm (Kp 5 or higher) is active. Check the radiation weather card; a direct effect on vital signs is not established."
+    source: [C6]
+    severity_modifier: 0
+    review: true
+
+  - id: space_weather_spe
+    enabled: true
+    applies_to: [hr_rest, bp_sys, bp_dia, sleep_h]
+    direction: any
+    condition:
+      type: environment
+      kind: solar_particle_event
+      window_h: 24                # an active event in the last 24 h; no value needed
+    message: "A solar particle event is active. Check the radiation weather card; a direct effect on vital signs is not established."
+    source: [C6]
+    severity_modifier: 0
+    review: true
+
+  # 5. Cabin CO2. NASA links raised CO2 to headache, poor sleep, fatigue and irritability.
+  #    Applies to sleep, not to BP or heart rate (no source found for those).
+  - id: elevated_co2
+    enabled: true
+    applies_to: [sleep_h]
+    direction: low
+    condition:
+      type: environment
+      kind: co2_mmhg
+      op: gte
+      value: 3.0                  # NASA-STD-3001 limit is an AVERAGE over 1 hour; we compare single logged readings
+                                  # (screening approximation, no hourly averaging in the demo)
+      window_h: 72
+    message: "A cabin CO2 reading of 3 mmHg or higher was logged in the last 3 days. On the ISS, raised CO2 has been associated with headache, poor sleep and fatigue."
+    source: [C7, C8]
+    severity_modifier: 0
+    review: false
+
+  # 6. High stress. Stress spikes BP and heart rate for a short time, then they return.
+  #    Assumes mood 5 = best, 1 = worst (NOTE: confirm the scale direction with B and Y).
+  - id: high_stress
+    enabled: true
+    applies_to: [hr_rest, bp_sys, bp_dia]
+    direction: high
+    condition:
+      type: metric_recent
+      metric: mood
+      op: lte
+      value: 2                    # team value: a mood rating of 1 or 2
+      window_h: 24
+    message: "Your mood rating in the last 24 h was low (stress). Stress can raise blood pressure and heart rate for a short time; retake after resting."
+    source: [C9]
+    severity_modifier: -1
+    review: false
+
+  # 7. Recent fever. Fever raises heart rate (about 8 bpm per degree C in one study).
+  #    Only explains a high HEART RATE; the fever itself is never downgraded (see policy).
+  - id: recent_fever
+    enabled: true
+    applies_to: [hr_rest]
+    direction: high
+    condition:
+      type: metric_recent
+      metric: temp
+      op: gte
+      value: 37.5                 # same as temp warn_high in metrics.yaml
+      window_h: 24
+    message: "A temperature of 37.5 C or higher was recorded in the last 24 h. Fever raises resting heart rate."
+    source: [C10]
+    severity_modifier: -1
+    review: false
+
+# --- SOURCES -----------------------------------------------------------------------
+# opened: true  = the page was opened and the claim checked (2026-11-14).
+# "team" in a rule's source list means a value we chose; there is no external source for it.
+
+sources:
+  - id: C1
+    publisher: Mayo Clinic / NHLBI
+    title: "Prolonged Shortened Sleep Increases Blood Pressure at Night"
+    url: https://newsnetwork.mayoclinic.org/discussion/prolonged-shortened-sleep-increases-blood-pressure-at-night-mayo-clinic-researchers-find/
+    note: 8 healthy adults, 4 h vs 9 h sleep. Night BP 115/64 vs 105/57 mmHg; night heart rate higher. Small study, night-time readings.
+    opened: true
+
+  - id: C2
+    publisher: NHLBI
+    title: NHLBI-funded Study Links Insufficient Sleep to Heart Disease
+    url: https://www.nhlbi.nih.gov/news/2016/nhlbi-funded-study-links-insufficient-sleep-heart-disease
+    note: 26 healthy young adults, 5 h sleep for 8 days; higher heart rate and norepinephrine (a stress hormone that can raise BP).
+    opened: true
+
+  - id: C3
+    publisher: NASA OCHMO
+    title: Astronaut Physiological Deconditioning and Exercise Prescription Countermeasures in Spaceflight (NASA/SP-20250000273)
+    url: https://ntrs.nasa.gov/citations/20250000273
+    note: Deconditioning begins on entering altered gravity; muscle and cardiovascular declines measurable within a few days.
+    opened: true
+
+  - id: C4
+    publisher: NASA
+    title: The Heart of the Matter, Cardiovascular Concerns
+    url: https://www.nasa.gov/content/cardiovascular-health
+    note: About 2 L of fluid shifts to the upper body on entering weightlessness. Gives no heart rate or BP findings.
+    opened: true
+
+  - id: C5
+    publisher: PubMed Central
+    title: Physiologic changes in short- and long-duration spaceflight (PMC2696527)
+    url: https://pmc.ncbi.nlm.nih.gov/articles/PMC2696527/
+    note: First 24 h of flight show a 17% reduction in plasma volume. Makes no statement on heart rate or BP in early adaptation.
+    opened: true
+
+  - id: C6
+    publisher: SANSA (South African National Space Agency), reproducing the NOAA scale
+    title: NOAA Geomagnetic Storm Scale
+    url: https://spaceweather.sansa.org.za/space-weather-information/definitions/noaa-scales
+    note: G1 (minor geomagnetic storm) = Kp 5. The NOAA SWPC original redirects to a site we could not open; the NWS training page lists G1 but no Kp value. Neither lists effects on vital signs.
+    opened: true
+
+  - id: C7
+    publisher: NASA OCHMO
+    title: "Carbon Dioxide (CO2), technical brief OCHMO-TB-004"
+    url: https://www.nasa.gov/?p=841628
+    note: NASA-STD-3001 V2 6004 limits average 1-hour ppCO2 to 3 mmHg. Lists headache and fatigue among symptoms; headache is the most reported in spaceflight.
+    opened: true
+
+  - id: C8
+    publisher: News-Medical (summary of Law et al., J Occup Environ Med 2014)
+    title: Headaches an occupational hazard for astronauts
+    url: https://www.news-medical.net/news/20140501/Headaches-an-occupational-hazard-astronauts.aspx
+    note: Headache odds doubled per 1 mmHg CO2. Sleep problems, fatigue and irritability appeared related, as an association only. News summary, not the paper.
+    opened: true
+
+  - id: C9
+    publisher: Mayo Clinic
+    title: "Stress and high blood pressure: What's the connection?"
+    url: https://mayoclinic.org/stress-and-high-blood-pressure/art-20044190
+    note: Stress hormones speed the heartbeat and narrow vessels, raising BP for a time; BP returns to its earlier level when the stress ends.
+    opened: true
+
+  - id: C10
+    publisher: PubMed (Karjalainen et al.)
+    title: Fever and cardiac rhythm (Arch Intern Med 1986;146(6):1169-71)
+    url: https://pubmed.ncbi.nlm.nih.gov/2424378/
+    note: 27 young men; each 1 C rise in temperature added about 8.5 beats per minute on average.
+    opened: true
+
+  - id: C11
+    publisher: NPJ Microgravity (THESEUS review series)
+    title: "Towards human exploration of space: cardiovascular, respiratory, and renal research priorities (PMC5515532)"
+    url: https://pmc.ncbi.nlm.nih.gov/articles/PMC5515532
+    note: Cardiac distension in the first 24 h of spaceflight; BP adapts in space to a set point like lying down on Earth. No heart rate finding for the first days.
+    opened: true
+
+  - id: team
+    publisher: team
+    title: Team starting values
+    note: Window lengths, the 6 h, 30 min and mood thresholds, min_count, and every severity_modifier are our own choices.
+    opened: true

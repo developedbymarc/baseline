@@ -1,9 +1,9 @@
 # =====================================================================================
-# BASELINE: config/chest_pain.yaml   (owner: Serge)   DRAFT v0.1
+# BASELINE: config/chest_pain.yaml   (work package 2.2, owner: Serge)   DRAFT v0.3
 # =====================================================================================
 # WHAT THIS FILE IS
 #   The chest pain emergency protocol, written as a decision tree. The app has no
-#   chest-pain questions in its code: This file is read and
+#   chest-pain questions in its code: Member D's protocol runner (6.5) reads this file and
 #   shows ONE step per screen with large buttons. Changing a step = editing this file.
 #
 # HOW TO READ IT
@@ -38,7 +38,7 @@
 
 id: chest_pain                       # unique name the app uses to find this protocol
 title: Chest pain / suspected cardiac event   # title shown at the top of every screen
-version: 0.1                         # bump this whenever a step or source changes (audit trail)
+version: "0.3"                      # quoted so it stays text ("0.10" is not "0.1"); bump on every change to a step or source (audit trail)
 language: en                         # language of the text below
 start: n_start                       # first node the runner opens; must match a node id
 
@@ -46,13 +46,14 @@ disclaimer: >-                       # shown on the protocol screens (story F5)
   BASELINE gives decision support from public first-aid guidance. It does not diagnose.
   Most chest pain is not cardiac, but it cannot be told apart at the bedside, so act and notify ground.
 
-trigger:                             # when the app offers to open this protocol (story E1)
-  - red result on hr_rest, bp_sys, bp_dia or spo2 together with a chest symptom
-  - crew member logs "chest pain" in the symptom checklist (story C6)
+trigger:                             # when the app offers to open this protocol (story E1); read by the backend
+  symptoms: [chest_pain]             # symptom code from the symptom checklist (story C6)
+  red_metrics: [hr_rest, bp_sys, bp_dia, spo2]   # a red result on any of these ...
+  requires_symptom: true             # ... only opens the protocol if a chest symptom is also logged
+  window_min: 30                     # "also logged" means within 30 min of MISSION time, before or after the red reading (either order)
 
-latency_rule: >-                     # how the protocol behaves when the link to ground is slow (story E3)
-  When one-way link latency is over the configured threshold (default 5 min) or the link is down,
-  show this on-board protocol first and "notify ground" second.
+latency_rule: >-                     # DISPLAY TEXT ONLY. The real threshold is Link:OnboardFirstThresholdSeconds in appsettings (story E3)
+  When the link is slow or down, show this on-board protocol first and "notify ground" second.
 
 # --- THE TREE ----------------------------------------------------------------------
 # Flow in one line:
@@ -143,7 +144,7 @@ tree_yaml:
     next: n_notify
     log: true                              # log that aspirin was taken, with time and dose
     review: true                           # flight surgeon must approve dose and wording for the on-board medical kit
-    src: [S1, S5]                          # S1: nothing by mouth otherwise; S5: 162-325 mg chewed
+    src: [S1, S7, S5]                      # S1: nothing by mouth otherwise; S7: 162-325 mg (secondary source); S5: NOT verified, see its note
 
   # 8b. No-aspirin path.
   - id: n_no_aspirin
@@ -220,9 +221,9 @@ sources:
     url: https://acc.org/latest-in-cardiology/ten-points-to-remember/2021/10/27/14/06/2021-guideline-for-chest-pain-gl_chestpain
     note: Expedite evaluation of acute chest pain; patient education to call 9-1-1. Source guideline - Gulati M, et al. 2021 AHA/ACC/ASE/CHEST/SAEM/SCCT/SCMR Guideline for the Evaluation and Diagnosis of Chest Pain. J Am Coll Cardiol / Circulation 2021.
     checked: 2026-11-14
-    opened: false                      # seen in a search result only: open before the 4:30 deadline
+    opened: false                      # the ACC page redirected to a maintenance page on 2026-11-14; try the Circulation / JACC full text
 
-  - id: S4                             # what counts as a chest-pain symptom
+  - id: S4                            # what counts as a chest-pain symptom
     publisher: ACC / AHA
     title: 2021 Chest Pain Guideline pocket guide (key points)
     url: https://cdn-corpweb.heartflow.com/assets/docs/ACC_AHA_Guidelines_ChestPain_PocketGuide_2021.pdf
@@ -234,9 +235,17 @@ sources:
     publisher: AHA guideline excerpt (Guideline Central eGuideline)
     title: AHA guidelines bundle, prehospital treatment excerpt
     url: https://eguideline.guidelinecentral.com/i/129442/7
-    note: Chewed aspirin 162-325 mg for suspected ACS unless contraindicated or already taken; reasonable to advise those without aspirin allergy to chew 162-325 mg while awaiting EMS.
+    note: UNVERIFIED. A search snippet showed chewed aspirin 162-325 mg for suspected ACS, but opening the page showed only the title "UA/NSTEMI Guidelines App" and nothing about aspirin. Do not rely on S5; replace with the current AHA/ACC ACS guideline.
     checked: 2026-11-14
-    opened: false                      # search result only: confirm against the current AHA/ACC guideline
+    opened: false
+
+  - id: S7                             # aspirin dose (secondary source)
+    publisher: HealthFirst (emergency kit supplier), quoting the 2025 ACC/AHA ACS guideline
+    title: Using Aspirin During a Cardiac-related Medical Emergency
+    url: https://www.healthfirst.com/knowledge-base/articles/using-aspirin-during-a-cardiac-related-medical-emergency/
+    note: Says the 2025 ACC/AHA ACS guideline (Table 7) recommends an oral aspirin load of 162-325 mg; one non-enteric-coated 325 mg tablet meets it; chewing speeds onset; not for known aspirin allergy, severe active bleeding, or someone who cannot safely chew and swallow. A vendor page, so confirm against the guideline itself.
+    checked: 2026-11-14
+    opened: false                      # seen in a search result only
 
   - id: S6                             # why on-board steps come first
     publisher: NASA Human Health and Performance
