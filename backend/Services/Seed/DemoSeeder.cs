@@ -22,11 +22,11 @@ namespace backend.Services.Seed;
 // (drift rates, fever size, mood and exercise levels) describe the synthetic story, not health thresholds.
 //
 // Planted events (spec section 11 D):
-//   crew 1  slow systolic / diastolic BP drift from mission day 8, levelling off at day 23 (about +1.8 SD)
+//   crew 1  slow systolic / diastolic BP drift ramping over the mission: green first third, yellow middle, red end
 //   crew 2  sleep decline from day 30 (low from day 36) with a mood dip on days 36-45; cabin CO2 entry on day 38
 //   crew 3  one-day fever on day 52 with a heart-rate rise the same morning
 //   crew 4  missed-measurement streak: nothing logged on days 60-64
-//   all     geomagnetic storm (Kp 6) and a solar particle event on day 25
+//   all     geomagnetic storm (Kp 6) and a solar particle event on day 47
 public sealed class DemoSeeder(ApplicationDbContext db, HealthConfig config, MissionClockService clock, MissionService missions)
 {
     public const int PreflightDays = 14;
@@ -39,9 +39,14 @@ public sealed class DemoSeeder(ApplicationDbContext db, HealthConfig config, Mis
     public const double InflightNoiseFactor = 0.7;
 
     // Synthetic story parameters.
-    // About +8 / +4 mmHg after 15 days (roughly +1.8 SD by demo step 4), then it levels off.
-    public const int BpDriftStartDay = 8, BpDriftEndDay = 23;
-    public const double BpSysDriftPerDay = 0.55, BpDiaDriftPerDay = 0.27;
+    // Alex's BP drift, in SDs of his own pre-flight baseline, as a continuous ramp through these knots
+    // (mission day, SD above baseline): green for about the first third (z < 1.5), yellow in the middle,
+    // red near the end (z > 2.5). Applied to systolic and diastolic BP alike.
+    public static readonly (int Day, double Sd)[] BpDriftKnots = [(1, 0.0), (27, 1.0), (33, 1.9), (60, 2.05), (64, 3.0), (90, 3.5)];
+    // Day-to-day noise of Alex's in-flight BP, as a share of his pre-flight SD. Lower than the general factor
+    // so the green / yellow / red bands of the ramp read clearly: the yellow band is 1 SD wide, which for a
+    // personal SD of 3-4 mmHg is only about three whole-mmHg readings.
+    public const double BpDriftNoiseFactor = 0.25;
     public const int SleepDeclineStartDay = 30, SleepLowFromDay = 36, SleepLowUntilDay = 45;
     public const double SleepLowHours = 4.8;
     public const int MoodDipFromDay = 36, MoodDipUntilDay = 45;
@@ -50,7 +55,8 @@ public sealed class DemoSeeder(ApplicationDbContext db, HealthConfig config, Mis
     public const int FeverDay = 52;
     public const double FeverTempC = 38.6, FeverHrRise = 14;
     public const int MissedFromDay = 60, MissedUntilDay = 64;
-    public const int SpaceWeatherDay = 25;
+    // In the middle third, when Alex's BP is yellow most days, so the space-weather factors show on real flags.
+    public const int SpaceWeatherDay = 47;
     public const double StormKp = 6;
     public const double MoodMean = 4.3, MoodSd = 0.4;          // 1 = worst, 5 = best
     public const double ExerciseMeanMin = 90, ExerciseSdMin = 12; // daily countermeasure exercise
@@ -169,16 +175,22 @@ public sealed class DemoSeeder(ApplicationDbContext db, HealthConfig config, Mis
         var latency = TimeSpan.FromSeconds(12 * 60);
 
         // Pre-flight: the 14 calendar days before launch (entered on the ground, so already synced).
+        var preflight = new List<Measurement>();
         for (var k = PreflightDays; k >= 1; k--)
         {
             var at = new DateTimeOffset(launch.UtcDateTime.Date, TimeSpan.Zero).AddDays(-k) + ReadingTime[metric.Code];
             var value = Clamp(metric, center + Normal(rng) * spread);
-            yield return new Measurement
+            preflight.Add(new Measurement
             {
                 CrewMemberId = crew.Id, MetricCode = metric.Code, Value = Round(metric, value), RecordedAt = at,
                 Source = HealthMeasurementSource.Preflight, SyncedAt = at,
-            };
+            });
         }
+        foreach (var m in preflight) yield return m;
+
+        // Alex's BP drift is defined against the baseline these pre-flight readings will lock.
+        var drifting = crewIndex == 0 && metric.Code is ("bp_sys" or "bp_dia");
+        var baseline = drifting ? BaselineEngine.Compute(preflight.Select(m => m.Value).ToList()) : null;
 
         // In flight: mission days 1..90.
         for (var day = 1; day <= InflightDays; day++)
@@ -191,6 +203,7 @@ public sealed class DemoSeeder(ApplicationDbContext db, HealthConfig config, Mis
             {
                 "mood" => MoodMean + noise * MoodSd,
                 "exercise_min" => ExerciseMeanMin + noise * ExerciseSdMin,
+                _ when baseline is { Sd: > 0 } b => b.Mean + (BpDriftSd(day) + noise * BpDriftNoiseFactor) * b.Sd,
                 _ => center + noise * spread * InflightNoiseFactor + Adaptation(metric.Code, day, spread),
             };
             value += Planted(crewIndex, metric.Code, day, spread);
@@ -204,6 +217,17 @@ public sealed class DemoSeeder(ApplicationDbContext db, HealthConfig config, Mis
                 Source = HealthMeasurementSource.Inflight, SyncedAt = at + latency,
             };
         }
+    }
+
+    // Piecewise-linear ramp through BpDriftKnots (SDs above Alex's pre-flight baseline on a mission day).
+    public static double BpDriftSd(int day)
+    {
+        var k = BpDriftKnots;
+        if (day <= k[0].Day) return k[0].Sd;
+        for (var i = 1; i < k.Length; i++)
+            if (day <= k[i].Day)
+                return k[i - 1].Sd + (k[i].Sd - k[i - 1].Sd) * (day - k[i - 1].Day) / (double)(k[i].Day - k[i - 1].Day);
+        return k[^1].Sd;
     }
 
     // Gentle adaptation in the first 2 weeks (fluid shift, sleep changes), fading to zero by day 14.
@@ -223,9 +247,6 @@ public sealed class DemoSeeder(ApplicationDbContext db, HealthConfig config, Mis
     {
         switch (crewIndex)
         {
-            case 0 when metric is "bp_sys" or "bp_dia" && day >= BpDriftStartDay:
-                var days = Math.Min(day, BpDriftEndDay) - BpDriftStartDay;
-                return days * (metric == "bp_sys" ? BpSysDriftPerDay : BpDiaDriftPerDay);
             case 1 when metric == "sleep_h" && day >= SleepDeclineStartDay && day <= SleepLowUntilDay:
                 // Linear decline to the low level by day 36, then stays low until day 45 (relative to ~8 h).
                 var progress = Math.Min(1.0, (day - SleepDeclineStartDay) / (double)(SleepLowFromDay - SleepDeclineStartDay));

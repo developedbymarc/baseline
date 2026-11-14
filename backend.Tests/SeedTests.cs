@@ -145,27 +145,47 @@ public sealed class SeedTests : IDisposable
         Assert.Contains(alerts, a => a.GetProperty("reason").GetString()!.StartsWith("Body temperature 38.6"));
     }
 
-    [Fact]
-    public void Bp_drift_alerts_start_after_the_drift_and_rise_to_most_days()
+    // Ramp: green for the first third, yellow in the middle, red near the end (both BP metrics).
+    [Theory]
+    [InlineData("bp_sys")]
+    [InlineData("bp_dia")]
+    public void Bp_drift_ramps_green_then_yellow_then_red(string metric)
     {
-        var alex = Alerts(Crew("Alex")).Where(a => a.Metric == "bp_sys").ToList();
-        Assert.True(alex.Count(a => a.Day < 15) <= 3, "few BP flags before the drift builds up");
-        Assert.True(alex.Count(a => a.Day >= 30) >= 40, "flagged on most days once the drift has levelled off");
+        var alex = Alerts(Crew("Alex")).Where(a => a.Metric == metric).ToList();
+        int Count(int from, int to, StatusLevel level) => alex.Count(a => a.Day >= from && a.Day <= to && a.Level == level);
+
+        Assert.True(Count(1, 30, StatusLevel.Yellow) + Count(1, 30, StatusLevel.Red) <= 3, "first third mostly green");
+        Assert.Equal(0, Count(1, 30, StatusLevel.Red));
+        Assert.True(Count(31, 60, StatusLevel.Yellow) >= 24, "middle third mostly yellow");
+        Assert.True(Count(31, 60, StatusLevel.Red) <= 2, "red only near the end");
+        Assert.True(Count(61, 90, StatusLevel.Red) >= 24, "last third mostly red");
+    }
+
+    [Fact]
+    public void Ramp_knots_give_the_intended_sd_levels()
+    {
+        Assert.Equal(0, DemoSeeder.BpDriftSd(1));
+        Assert.True(DemoSeeder.BpDriftSd(27) < 1.5);
+        Assert.InRange(DemoSeeder.BpDriftSd(45), 1.5, 2.5);
+        Assert.True(DemoSeeder.BpDriftSd(70) > 2.5);
+        for (var d = 2; d <= 90; d++) Assert.True(DemoSeeder.BpDriftSd(d) >= DemoSeeder.BpDriftSd(d - 1), "monotone ramp");
     }
 
     [Fact]
     public async Task Bp_drift_shows_in_the_reports()
     {
         var alex = Crew("Alex");
-        await JumpToDay(31.5); // monthly period 1 (days 1-30) complete
+        await JumpToDay(31.5); // monthly period 1 (days 1-30) complete: the ramp from 0 to ~1.3 SD is a rising trend
         var monthly = await Get($"/api/crew/{alex}/reports/monthly/1", "ground");
         Assert.Equal("rising", Row(monthly, "bp_sys").GetProperty("trend").GetString());
         Assert.Contains(monthly.GetProperty("highlights").EnumerateArray(), h => h.GetString()!.StartsWith("Systolic blood pressure rose over this period"));
 
-        await JumpToDay(43.5); // biweekly period 3 (days 29-42) complete: the plateau is well above baseline
-        var bi3 = await Get($"/api/crew/{alex}/reports/biweekly/3", "ground");
-        Assert.True(Row(bi3, "bp_sys").GetProperty("zSd").GetDouble() > 1.5);
-        Assert.True(Row(bi3, "bp_dia").GetProperty("zSd").GetDouble() > 1.0);
+        await JumpToDay(91.5); // monthly period 3 (days 61-90): well above baseline, red range
+        var m3 = await Get($"/api/crew/{alex}/reports/monthly/3", "ground");
+        Assert.True(Row(m3, "bp_sys").GetProperty("zSd").GetDouble() > 2.5);
+        Assert.True(Row(m3, "bp_dia").GetProperty("zSd").GetDouble() > 2.5);
+        var m2 = await Get($"/api/crew/{alex}/reports/monthly/2", "ground");
+        Assert.InRange(Row(m2, "bp_sys").GetProperty("zSd").GetDouble(), 1.5, 2.5);
     }
 
     [Fact]
@@ -218,8 +238,9 @@ public sealed class SeedTests : IDisposable
     [Fact]
     public void Space_weather_entries_make_their_factors_fire()
     {
-        var all = Db(db => db.Alerts.Select(a => new { a.CreatedAt, a.ContextJson }).ToList());
-        Assert.Contains(all, a => a.ContextJson != null && a.ContextJson.Contains("\"space_weather_kp\"") && a.ContextJson.Contains("\"space_weather_spe\""));
+        var alex = Alerts(Crew("Alex"));
+        Assert.Contains(alex, a => a.Day == DemoSeeder.SpaceWeatherDay && a.Metric == "bp_sys"
+                                   && a.Context!.Contains("\"space_weather_kp\"") && a.Context.Contains("\"space_weather_spe\""));
     }
 
     [Fact]

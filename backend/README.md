@@ -23,13 +23,13 @@ dotnet run -- reseed    # wipe baseline.db and reload the demo mission
 
 | Crew member | Planted event |
 |---|---|
-| Alex Rivera | Slow BP drift from mission day 8, levelling off at day 23 (about +1.8 SD) |
+| Alex Rivera | Slow BP drift ramping over the mission: green for the first third, yellow in the middle (about +2 SD), red near the end (above +2.5 SD) |
 | Sam Okafor | Sleep decline from day 30 (about 4.8 h on days 36-45) with a mood dip; cabin CO2 3.6 mmHg on day 38 |
 | Jordan Lee | One-day fever on day 52 (38.6 °C) with a heart-rate rise |
 | Rana Haddad | Nothing logged on days 60-64 (missed-measurement streak) |
-| Everyone | Geomagnetic storm (Kp 6) and a solar particle event on day 25 |
+| Everyone | Geomagnetic storm (Kp 6) and a solar particle event on day 47 (lands on Alex's yellow BP flags) |
 
-Vital signs are drawn around the middle of each metric's normal band from `config/metrics.yaml`. In-flight noise is 0.7 of the pre-flight spread so that ordinary noise stays mostly green. Alerts and context factors for the seeded readings are precomputed with the real engines and reach ground through the link with the mission latency. Daily reminders are seeded on the crew side.
+Vital signs are drawn around the middle of each metric's normal band from `config/metrics.yaml`. In-flight noise is 0.7 of the pre-flight spread so that ordinary noise stays mostly green. Alex's BP ramp is defined in SDs of his own locked baseline with lower noise (0.25 SD), so its green / yellow / red phases read clearly. Alerts and context factors for the seeded readings are precomputed with the real engines and reach ground through the link with the mission latency. Daily reminders are seeded on the crew side.
 
 Demo script tip: fast-forward (`POST /api/demo/clock {"fastForward": true}`), then switch back with `{"fastForward": false}` before step 5, or the 30-minute chest pain window and the 12-minute delay are over almost at once.
 
