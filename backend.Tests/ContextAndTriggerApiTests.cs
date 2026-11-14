@@ -12,7 +12,7 @@ public sealed class ContextAndTriggerApiTests : IDisposable
     private readonly BaselineApiFactory _factory = new();
     private readonly HttpClient _http;
 
-    public ContextAndTriggerApiTests() => _http = _factory.CreateClient();
+    public ContextAndTriggerApiTests() => _http = _factory.CreateRoleClient();
     public void Dispose() => _factory.Dispose();
 
     private async Task<JsonElement> Get(string url)
@@ -104,7 +104,7 @@ public sealed class ContextAndTriggerApiTests : IDisposable
 
         // Ground receives the factors too.
         _factory.Time.Advance(TimeSpan.FromSeconds(721));
-        var inbox = (await Get("/api/ground/inbox"))[0];
+        var inbox = (await Get("/api/ground/inbox?type=Alert"))[0];
         Assert.True(inbox.GetProperty("payload").GetProperty("context").GetProperty("downgraded").GetBoolean());
         Assert.Equal("Green", inbox.GetProperty("payload").GetProperty("context").GetProperty("level").GetString());
     }

@@ -74,3 +74,33 @@ public static class TestMetrics
         Polarity = "none",
     };
 }
+
+// Sets the mock-auth headers from the URL so existing tests act as the obvious caller:
+// /api/ground/* -> ground; /api/crew/{id}/* -> that crew member; /api/crew/protocol-runs/* -> the last crew member
+// used; /api/crew -> ground. Requests that already carry X-Role are left alone. Role tests use raw clients instead.
+public sealed class RoleInferringHandler : DelegatingHandler
+{
+    private Guid? _lastCrew;
+
+    protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
+    {
+        if (!request.Headers.Contains("X-Role"))
+        {
+            var segments = request.RequestUri!.AbsolutePath.Trim('/').Split('/');
+            if (segments is ["api", "ground", ..] or ["api", "crew"])
+                request.Headers.Add("X-Role", "ground");
+            else if (segments is ["api", "crew", var id, ..] && Guid.TryParse(id, out var crewId))
+            {
+                _lastCrew = crewId;
+                request.Headers.Add("X-Role", "crew");
+                request.Headers.Add("X-Crew-Id", crewId.ToString());
+            }
+            else if (segments is ["api", "crew", "protocol-runs", ..] && _lastCrew is { } last)
+            {
+                request.Headers.Add("X-Role", "crew");
+                request.Headers.Add("X-Crew-Id", last.ToString());
+            }
+        }
+        return base.SendAsync(request, ct);
+    }
+}

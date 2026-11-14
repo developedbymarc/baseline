@@ -26,6 +26,9 @@ public sealed class BaselineApiFactory : WebApplicationFactory<Program>
         });
     }
 
+    // A client whose requests carry the mock-auth headers implied by the URL (see RoleInferringHandler).
+    public HttpClient CreateRoleClient() => CreateDefaultClient(new RoleInferringHandler());
+
     protected override void Dispose(bool disposing)
     {
         base.Dispose(disposing);
@@ -39,7 +42,7 @@ public sealed class ApiTests : IDisposable
     private readonly BaselineApiFactory _factory = new();
     private readonly HttpClient _http;
 
-    public ApiTests() => _http = _factory.CreateClient();
+    public ApiTests() => _http = _factory.CreateRoleClient();
 
     // Read from the file so a version bump in chest_pain.yaml does not break these tests.
     private static readonly string ChestPainVersion =
@@ -141,7 +144,7 @@ public sealed class ApiTests : IDisposable
         Assert.Contains("threshold", status.GetProperty("rule").GetString());
         Assert.NotEqual(JsonValueKind.Null, body.GetProperty("data").GetProperty("alertId").ValueKind);
 
-        var queue = await Get("/api/link/queue");
+        var queue = await Get("/api/link/queue?type=Alert");
         Assert.Equal("in_flight", queue[0].GetProperty("state").GetString());
         var sentAt = queue[0].GetProperty("sentAt").GetDateTimeOffset();
         Assert.Empty((await Get("/api/ground/inbox")).EnumerateArray());
@@ -150,7 +153,7 @@ public sealed class ApiTests : IDisposable
         Assert.Empty((await Get("/api/ground/inbox")).EnumerateArray());
 
         _factory.Time.Advance(TimeSpan.FromSeconds(2));
-        var inbox = await Get("/api/ground/inbox");
+        var inbox = await Get("/api/ground/inbox?type=Alert");
         Assert.Equal(1, inbox.GetArrayLength());
         Assert.Equal("Alert", inbox[0].GetProperty("type").GetString());
         Assert.Equal(sentAt, inbox[0].GetProperty("sentAt").GetDateTimeOffset());
@@ -179,7 +182,7 @@ public sealed class ApiTests : IDisposable
         Assert.Equal("in_flight", (await Get("/api/link/queue"))[0].GetProperty("state").GetString());
 
         _factory.Time.Advance(TimeSpan.FromSeconds(61));
-        var inbox = await Get("/api/ground/inbox");
+        var inbox = await Get("/api/ground/inbox?type=Packet");
         Assert.Equal("Packet", inbox[0].GetProperty("type").GetString());
         Assert.Equal(sentAt, inbox[0].GetProperty("sentAt").GetDateTimeOffset());
         Assert.Equal("felt dizzy", inbox[0].GetProperty("payload").GetProperty("note").GetString());
@@ -325,6 +328,7 @@ public sealed class ApiTests : IDisposable
     {
         var crew = await FirstCrewId();
         await Post($"/api/crew/{crew}/measurements", new { metricCode = "spo2", value = 85 });
+        _factory.Time.Advance(TimeSpan.FromSeconds(721)); // ground sees it only after the link delay
         var grid = await Get("/api/ground/overview");
         Assert.Equal(4, grid.GetArrayLength());
         var row = grid.EnumerateArray().Single(r => r.GetProperty("crewMemberId").GetString() == crew);

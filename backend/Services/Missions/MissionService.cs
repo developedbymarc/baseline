@@ -122,11 +122,23 @@ public sealed class MissionService(ApplicationDbContext db, HealthConfig config,
             Source = inflight ? HealthMeasurementSource.Inflight : HealthMeasurementSource.Preflight,
             QualityFlag = plausibility.Plausible ? QualityFlag.Ok : QualityFlag.ImplausibleConfirmed,
             Note = note,
+            // Pre-flight data is entered on the ground, so ground already has it.
+            SyncedAt = inflight ? null : now,
         };
         db.Measurements.Add(measurement);
 
         var baselines = await BaselineSnapshotsAsync(crew.Id, ct);
         var status = StatusEngine.Evaluate(metric, value, baselines.GetValueOrDefault(metric.Code));
+
+        // In flight, ground learns about the reading only through the delayed link (synced_at set on delivery).
+        if (inflight)
+            QueueSync(mission, now, LinkMessageType.Measurement, new
+            {
+                measurementId = measurement.Id, crewMemberId = crew.Id, crewName = crew.Name,
+                metricCode = metric.Code, value, unit = metric.Unit, recordedAt = now,
+                source = measurement.Source, qualityFlag = measurement.QualityFlag, note,
+                level = status.Level, rule = status.Rule, reason = status.Reason,
+            });
 
         Guid? alertId = null;
         ContextResult? context = null;
@@ -242,6 +254,10 @@ public sealed class MissionService(ApplicationDbContext db, HealthConfig config,
         var now = Now(mission);
         var log = new SymptomLog { CrewMemberId = crew.Id, SymptomCode = symptomCode, LoggedAt = now, Note = note };
         db.SymptomLogs.Add(log);
+        QueueSync(mission, now, LinkMessageType.Symptom, new
+        {
+            symptomLogId = log.Id, crewMemberId = crew.Id, crewName = crew.Name, symptomCode, note, loggedAt = now,
+        });
 
         Guid? alertId = null;
         ProtocolOffer? offer = null;
@@ -321,8 +337,115 @@ public sealed class MissionService(ApplicationDbContext db, HealthConfig config,
             .Where(m => m.MissionId == mission.Id && m.DeliveredAt == null && m.DeliverAt != null && m.DeliverAt <= now)
             .ToListAsync(ct);
         var delivered = LinkQueue.DeliverDue(pending, now);
+
+        // A delivered measurement message marks the measurement as synced to ground (MEASUREMENT.synced_at).
+        var synced = delivered.Where(m => m.Type == LinkMessageType.Measurement)
+            .Select(m => (Id: JsonDocument.Parse(m.Payload).RootElement.GetProperty("measurementId").GetGuid(), At: m.DeliveredAt!.Value))
+            .ToList();
+        if (synced.Count > 0)
+        {
+            var ids = synced.Select(s => s.Id).ToList();
+            var rows = await db.Measurements.Where(x => ids.Contains(x.Id)).ToDictionaryAsync(x => x.Id, ct);
+            foreach (var (id, at) in synced)
+                if (rows.TryGetValue(id, out var row)) row.SyncedAt = at;
+        }
+
         await db.SaveChangesAsync(ct);
         return delivered;
+    }
+
+    private void QueueSync(Mission mission, DateTimeOffset now, LinkMessageType type, object payload, Guid? alertId = null) =>
+        db.LinkMessages.Add(LinkQueue.Create(mission, now, LinkDirection.CrewToGround, type,
+            JsonSerializer.Serialize(payload, Json), alertId));
+
+    // ---------- What ground may see: only data delivered through the link ----------
+
+    // Measurements ground has: pre-flight data (entered on the ground) and in-flight readings whose sync message arrived.
+    public IQueryable<Measurement> GroundVisibleMeasurements(DateTimeOffset missionNow) =>
+        db.Measurements.Where(x => x.Source == HealthMeasurementSource.Preflight
+                                   || (x.SyncedAt != null && x.SyncedAt <= missionNow));
+
+    // Alerts whose alert message has been delivered to ground.
+    public IQueryable<Alert> GroundVisibleAlerts() =>
+        db.Alerts.Where(a => db.LinkMessages.Any(m => m.AlertId == a.Id && m.Type == LinkMessageType.Alert && m.DeliveredAt != null));
+
+    // ---------- Protocol runs (F3): every event is synced to ground ----------
+
+    public async Task<ProtocolRun> StartProtocolAsync(Guid crewId, string protocolId, Guid? alertId, CancellationToken ct = default)
+    {
+        var mission = await CurrentAsync(ct);
+        var crew = await CrewAsync(mission, crewId, ct);
+        if (!config.Protocols.TryGetValue(protocolId, out var protocol))
+            throw new ApiProblem(404, "NO_PROTOCOL", $"Protocol '{protocolId}' not found.");
+        if (alertId is { } a && !await db.Alerts.AnyAsync(x => x.Id == a && x.CrewMemberId == crew.Id, ct))
+            throw new ApiProblem(404, "NO_ALERT", $"Alert {a} not found for this crew member.");
+
+        var now = Now(mission);
+        var run = new ProtocolRun
+        {
+            CrewMemberId = crew.Id, ProtocolId = protocol.Id, ProtocolVersion = protocol.Version,
+            AlertId = alertId, StartedAt = now,
+        };
+        db.ProtocolRuns.Add(run);
+        QueueSync(mission, now, LinkMessageType.ProtocolStep, new
+        {
+            runId = run.Id, crewMemberId = crew.Id, crewName = crew.Name, protocolId = protocol.Id,
+            protocolVersion = protocol.Version, @event = "started", at = now,
+        }, alertId);
+        await db.SaveChangesAsync(ct);
+        return run;
+    }
+
+    public async Task<ProtocolRun> OpenRunAsync(Guid runId, CancellationToken ct = default)
+    {
+        var run = await db.ProtocolRuns.FirstOrDefaultAsync(r => r.Id == runId, ct)
+                  ?? throw new ApiProblem(404, "NO_RUN", $"Protocol run {runId} not found.");
+        return run;
+    }
+
+    public async Task<ProtocolRun> LogProtocolStepAsync(ProtocolRun run, string nodeId, string? answer, CancellationToken ct = default)
+    {
+        if (run.EndedAt is not null) throw new ApiProblem(409, "RUN_ENDED", "This protocol run has already ended.");
+        var protocol = config.Protocols[run.ProtocolId];
+        if (protocol.TreeYaml.All(n => n.Id != nodeId))
+            throw new ApiProblem(400, "NO_NODE", $"Node '{nodeId}' is not in protocol '{run.ProtocolId}'.");
+        var mission = await CurrentAsync(ct);
+        var now = Now(mission);
+        AppendStep(run, nodeId, answer, now);
+        QueueSync(mission, now, LinkMessageType.ProtocolStep, new
+        {
+            runId = run.Id, crewMemberId = run.CrewMemberId, protocolId = run.ProtocolId,
+            protocolVersion = run.ProtocolVersion, @event = "step", nodeId, answer, at = now,
+        }, run.AlertId);
+        await db.SaveChangesAsync(ct);
+        return run;
+    }
+
+    public async Task<ProtocolRun> EndProtocolAsync(ProtocolRun run, string? outcome, CancellationToken ct = default)
+    {
+        if (run.EndedAt is not null) throw new ApiProblem(409, "RUN_ENDED", "This protocol run has already ended.");
+        var valid = HealthConfig.Outcomes(config.Protocols[run.ProtocolId]);
+        if (outcome is null || !valid.Contains(outcome))
+            throw new ApiProblem(400, "BAD_OUTCOME",
+                $"Outcome must be one of the protocol's end outcomes: {string.Join(", ", valid.Order())}.");
+        var mission = await CurrentAsync(ct);
+        var now = Now(mission);
+        AppendStep(run, "end", outcome, now);
+        run.EndedAt = now;
+        QueueSync(mission, now, LinkMessageType.ProtocolStep, new
+        {
+            runId = run.Id, crewMemberId = run.CrewMemberId, protocolId = run.ProtocolId,
+            protocolVersion = run.ProtocolVersion, @event = "ended", outcome, at = now,
+        }, run.AlertId);
+        await db.SaveChangesAsync(ct);
+        return run;
+    }
+
+    private static void AppendStep(ProtocolRun run, string nodeId, string? answer, DateTimeOffset at)
+    {
+        var steps = System.Text.Json.Nodes.JsonNode.Parse(run.StepsJson)!.AsArray();
+        steps.Add(new System.Text.Json.Nodes.JsonObject { ["nodeId"] = nodeId, ["answer"] = answer, ["at"] = at });
+        run.StepsJson = steps.ToJsonString();
     }
 
     public async Task SetLinkAsync(Mission mission, bool? up, double? latencySeconds, CancellationToken ct = default)

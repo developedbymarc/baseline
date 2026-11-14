@@ -19,7 +19,7 @@ builder.Services.AddCors(options =>
         .WithOrigins(builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [])
         .AllowCredentials()
         .WithMethods("GET", "POST", "PUT", "PATCH", "DELETE")
-        .WithHeaders("Content-Type"));
+        .WithHeaders("Content-Type", backend.Auth.Caller.RoleHeader, backend.Auth.Caller.CrewIdHeader));
 });
 
 // --- Controllers ---

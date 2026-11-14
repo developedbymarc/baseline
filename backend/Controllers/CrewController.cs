@@ -2,6 +2,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using backend.Auth;
 using backend.Configuration;
 using backend.Data;
 using backend.Entities;
@@ -38,21 +39,30 @@ public sealed record ProtocolRunDto(Guid Id, Guid CrewMemberId, string ProtocolI
 }
 
 // Crew-side API (/crew UI). Everything here works with the link down: nothing waits on ground.
+// Mock roles (X-Role / X-Crew-Id): crew act on their own data only; ground may read crew data, but only
+// what has been delivered through the link queue.
 [ApiController]
 [Route("api/crew")]
 public sealed class CrewController(MissionService missions, ApplicationDbContext db, HealthConfig config) : ControllerBase
 {
+    private Caller Me => Caller.From(Request);
+
     [HttpGet]
     public async Task<ApiResponse<IEnumerable<CrewMemberDto>>> List(CancellationToken ct)
     {
+        var me = Me;
         var m = await missions.CurrentAsync(ct);
-        var crew = await db.CrewMembers.Where(c => c.MissionId == m.Id).OrderBy(c => c.Name).ToListAsync(ct);
+        var q = db.CrewMembers.Where(c => c.MissionId == m.Id);
+        if (!me.IsGround) q = q.Where(c => c.Id == me.CrewId);
+        var crew = await q.OrderBy(c => c.Name).ToListAsync(ct);
         return ApiResponse<IEnumerable<CrewMemberDto>>.Succeeded(crew.Select(CrewMemberDto.From));
     }
 
+    // Baselines are computed from pre-flight data entered on the ground, so ground may read them.
     [HttpGet("{crewId:guid}/baselines")]
     public async Task<ApiResponse<IEnumerable<object>>> Baselines(Guid crewId, CancellationToken ct)
     {
+        Me.RequireCrewOrGround(crewId);
         var m = await missions.CurrentAsync(ct);
         await missions.CrewAsync(m, crewId, ct);
         var rows = await db.Baselines.Where(b => b.CrewMemberId == crewId).ToListAsync(ct);
@@ -77,13 +87,18 @@ public sealed class CrewController(MissionService missions, ApplicationDbContext
     }
 
     // D1: history for charts. days = 7 / 14 / 30, omit for the full mission (pre-flight included).
+    // Ground sees pre-flight data and in-flight readings whose sync message has been delivered.
     [HttpGet("{crewId:guid}/measurements")]
     public async Task<ApiResponse<IEnumerable<object>>> Measurements(Guid crewId, [FromQuery] string? metric, [FromQuery] int? days, CancellationToken ct)
     {
+        var me = Me;
+        me.RequireCrewOrGround(crewId);
         var m = await missions.CurrentAsync(ct);
         await missions.CrewAsync(m, crewId, ct);
+        if (me.IsGround) await missions.DeliverDueAsync(m, ct);
         var now = missions.Now(m);
-        var q = db.Measurements.Where(x => x.CrewMemberId == crewId && x.RecordedAt <= now);
+        var source = me.IsGround ? missions.GroundVisibleMeasurements(now) : db.Measurements;
+        var q = source.Where(x => x.CrewMemberId == crewId && x.RecordedAt <= now);
         if (metric is not null) q = q.Where(x => x.MetricCode == metric);
         if (days is { } d) { var from = now.AddDays(-d); q = q.Where(x => x.RecordedAt >= from); }
         var rows = await q.OrderBy(x => x.RecordedAt).ToListAsync(ct);
@@ -95,7 +110,7 @@ public sealed class CrewController(MissionService missions, ApplicationDbContext
             var status = met is null || x.Source == HealthMeasurementSource.Preflight
                 ? null
                 : StatusEngine.Evaluate(met, x.Value, baselines.GetValueOrDefault(x.MetricCode));
-            return (object)new { x.Id, x.MetricCode, x.Value, x.RecordedAt, x.Source, x.QualityFlag, x.Note, Status = status };
+            return (object)new { x.Id, x.MetricCode, x.Value, x.RecordedAt, x.Source, x.QualityFlag, x.Note, x.SyncedAt, Status = status };
         }));
     }
 
@@ -103,6 +118,7 @@ public sealed class CrewController(MissionService missions, ApplicationDbContext
     [HttpPost("{crewId:guid}/measurements")]
     public async Task<IActionResult> Submit(Guid crewId, SubmitMeasurementRequest req, CancellationToken ct)
     {
+        Me.RequireCrew(crewId);
         var r = await missions.SubmitMeasurementAsync(crewId, req.MetricCode, req.Value, req.ConfirmImplausible, req.Note, ct);
         if (r.NeedsConfirmation)
             return UnprocessableEntity(ApiResponse.Failed(r.Plausibility.Message!, "IMPLAUSIBLE_VALUE"));
@@ -118,10 +134,12 @@ public sealed class CrewController(MissionService missions, ApplicationDbContext
         }));
     }
 
-    // B2/B3: due and overdue reminders from the crew-side schedule.
+    // B2/B3: due and overdue reminders from the crew-side schedule. Crew only: reminder progress
+    // lives on the crew side and is not synced to ground.
     [HttpGet("{crewId:guid}/reminders")]
     public async Task<ApiResponse<IEnumerable<object>>> Reminders(Guid crewId, [FromQuery] bool openOnly = true, CancellationToken ct = default)
     {
+        Me.RequireCrew(crewId);
         var m = await missions.CurrentAsync(ct);
         await missions.CrewAsync(m, crewId, ct);
         await missions.SyncRemindersAsync(m, crewId, ct);
@@ -142,12 +160,17 @@ public sealed class CrewController(MissionService missions, ApplicationDbContext
         }));
     }
 
+    // Ground sees an alert only once its alert message has been delivered.
     [HttpGet("{crewId:guid}/alerts")]
     public async Task<ApiResponse<IEnumerable<AlertDto>>> Alerts(Guid crewId, CancellationToken ct)
     {
+        var me = Me;
+        me.RequireCrewOrGround(crewId);
         var m = await missions.CurrentAsync(ct);
         await missions.CrewAsync(m, crewId, ct);
-        var rows = await db.Alerts.Where(a => a.CrewMemberId == crewId).OrderByDescending(a => a.CreatedAt).ToListAsync(ct);
+        if (me.IsGround) await missions.DeliverDueAsync(m, ct);
+        var source = me.IsGround ? missions.GroundVisibleAlerts() : db.Alerts;
+        var rows = await source.Where(a => a.CrewMemberId == crewId).OrderByDescending(a => a.CreatedAt).ToListAsync(ct);
         return ApiResponse<IEnumerable<AlertDto>>.Succeeded(rows.Select(AlertDto.From));
     }
 
@@ -155,6 +178,7 @@ public sealed class CrewController(MissionService missions, ApplicationDbContext
     [HttpPost("{crewId:guid}/symptoms")]
     public async Task<ApiResponse<object>> LogSymptom(Guid crewId, LogSymptomRequest req, CancellationToken ct)
     {
+        Me.RequireCrew(crewId);
         var r = await missions.LogSymptomAsync(crewId, req.SymptomCode, req.Note, ct);
         return ApiResponse<object>.Succeeded(new
         {
@@ -169,69 +193,38 @@ public sealed class CrewController(MissionService missions, ApplicationDbContext
     [HttpPost("{crewId:guid}/packets")]
     public async Task<ApiResponse<LinkMessageDto>> QueuePacket(Guid crewId, QueuePacketRequest req, CancellationToken ct)
     {
+        Me.RequireCrew(crewId);
         var msg = await missions.QueuePacketAsync(crewId, req.AlertId, req.Packet, req.Note, ct);
         var m = await missions.CurrentAsync(ct);
         return ApiResponse<LinkMessageDto>.Succeeded(LinkMessageDto.From(msg, missions.Now(m)));
     }
 
-    // F3: protocol runs log every step with its mission time.
+    // F3: protocol runs log every step with its mission time; each event is synced to ground.
     [HttpPost("{crewId:guid}/protocol-runs")]
     public async Task<ApiResponse<ProtocolRunDto>> StartProtocol(Guid crewId, StartProtocolRequest req, CancellationToken ct)
     {
-        var m = await missions.CurrentAsync(ct);
-        var crew = await missions.CrewAsync(m, crewId, ct);
-        if (!config.Protocols.TryGetValue(req.ProtocolId, out var protocol))
-            throw new ApiProblem(404, "NO_PROTOCOL", $"Protocol '{req.ProtocolId}' not found.");
-        var run = new ProtocolRun
-        {
-            CrewMemberId = crew.Id,
-            ProtocolId = protocol.Id,
-            ProtocolVersion = protocol.Version,
-            AlertId = req.AlertId,
-            StartedAt = missions.Now(m),
-        };
-        db.ProtocolRuns.Add(run);
-        await db.SaveChangesAsync(ct);
+        Me.RequireCrew(crewId);
+        var run = await missions.StartProtocolAsync(crewId, req.ProtocolId, req.AlertId, ct);
         return ApiResponse<ProtocolRunDto>.Succeeded(ProtocolRunDto.From(run));
     }
 
     [HttpPost("protocol-runs/{runId:guid}/steps")]
     public async Task<ApiResponse<ProtocolRunDto>> LogStep(Guid runId, ProtocolStepRequest req, CancellationToken ct)
     {
-        var (m, run) = await OpenRunAsync(runId, ct);
-        var protocol = config.Protocols[run.ProtocolId];
-        if (protocol.TreeYaml.All(n => n.Id != req.NodeId))
-            throw new ApiProblem(400, "NO_NODE", $"Node '{req.NodeId}' is not in protocol '{run.ProtocolId}'.");
-        var steps = JsonNode.Parse(run.StepsJson)!.AsArray();
-        steps.Add(new JsonObject { ["nodeId"] = req.NodeId, ["answer"] = req.Answer, ["at"] = missions.Now(m) });
-        run.StepsJson = steps.ToJsonString();
-        await db.SaveChangesAsync(ct);
+        var me = Me;
+        var run = await missions.OpenRunAsync(runId, ct);
+        me.RequireCrew(run.CrewMemberId);
+        await missions.LogProtocolStepAsync(run, req.NodeId, req.Answer, ct);
         return ApiResponse<ProtocolRunDto>.Succeeded(ProtocolRunDto.From(run));
     }
 
     [HttpPost("protocol-runs/{runId:guid}/end")]
     public async Task<ApiResponse<ProtocolRunDto>> EndProtocol(Guid runId, EndProtocolRequest req, CancellationToken ct)
     {
-        var (m, run) = await OpenRunAsync(runId, ct);
-        var valid = HealthConfig.Outcomes(config.Protocols[run.ProtocolId]);
-        if (req.Outcome is null || !valid.Contains(req.Outcome))
-            throw new ApiProblem(400, "BAD_OUTCOME",
-                $"Outcome must be one of the protocol's end outcomes: {string.Join(", ", valid.Order())}.");
-        var now = missions.Now(m);
-        var steps = JsonNode.Parse(run.StepsJson)!.AsArray();
-        steps.Add(new JsonObject { ["nodeId"] = "end", ["answer"] = req.Outcome, ["at"] = now });
-        run.StepsJson = steps.ToJsonString();
-        run.EndedAt = now;
-        await db.SaveChangesAsync(ct);
+        var me = Me;
+        var run = await missions.OpenRunAsync(runId, ct);
+        me.RequireCrew(run.CrewMemberId);
+        await missions.EndProtocolAsync(run, req.Outcome, ct);
         return ApiResponse<ProtocolRunDto>.Succeeded(ProtocolRunDto.From(run));
-    }
-
-    private async Task<(Mission, ProtocolRun)> OpenRunAsync(Guid runId, CancellationToken ct)
-    {
-        var m = await missions.CurrentAsync(ct);
-        var run = await db.ProtocolRuns.FirstOrDefaultAsync(r => r.Id == runId, ct)
-                  ?? throw new ApiProblem(404, "NO_RUN", $"Protocol run {runId} not found.");
-        if (run.EndedAt is not null) throw new ApiProblem(409, "RUN_ENDED", "This protocol run has already ended.");
-        return (m, run);
     }
 }

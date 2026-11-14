@@ -11,7 +11,7 @@ decision support, not diagnosis.**
 | Base URL | `http://localhost:5074` (launch profile `http`, see `backend/Properties/launchSettings.json`) |
 | CORS | Browser calls are allowed from `http://localhost:5173` (Vite dev) and `http://localhost:4173` (Vite preview). Calls made from SvelteKit server code (`+page.server.ts`) are server-to-server and need no CORS. |
 | Format | JSON, camelCase property names |
-| IDs | GUID strings, e.g. `"3d930bba-cd6d-4c14-b519-e760578b50e2"` |
+| IDs | GUID strings, e.g. `"676ba813-0f7f-48bf-97cb-728da239a832"` |
 | Docs UI | `http://localhost:5074/scalar` (Development only) |
 | Offline | No internet needed. `dotnet run` seeds the demo mission if the DB is empty; `dotnet run -- reseed` resets it. |
 
@@ -32,6 +32,8 @@ On failure `success` is `false`, `data` is `null` and `error` explains why:
 | HTTP | `error.code` examples | Meaning |
 |---|---|---|
 | 400 | `VALIDATION_FAILURE` (with `details` per field), `UNKNOWN_METRIC`, `BAD_OUTCOME`, `NO_NODE`, `OUT_OF_RANGE`, `BAD_LATENCY`, `BAD_FORMAT` | Bad request |
+| 401 | `NO_ROLE`, `NO_676ba813-0f7f-48bf-97cb-728da239a832` | Missing or invalid mock-auth headers (see Roles) |
+| 403 | `FORBIDDEN` | Another crew member's data, or a ground-only endpoint |
 | 404 | `NO_MISSION`, `NO_CREW`, `NO_ALERT`, `NO_PROTOCOL`, `NO_RUN` | Not found |
 | 409 | `ALREADY_INFLIGHT`, `RUN_ENDED`, `BASELINE_LOCKED` | Conflict with current state |
 | 422 | `IMPLAUSIBLE_VALUE` | Measurement outside the plausible range: show the message, let the crew member retake or confirm |
@@ -53,7 +55,7 @@ On failure `success` is `false`, `data` is `null` and `error` explains why:
 | measurement `qualityFlag` | `Ok`, `ImplausibleConfirmed` |
 | reminder `status` | `Pending`, `Done`, `Late`, `Missed` |
 | link message `direction` | `CrewToGround`, `GroundToCrew` |
-| link message `type` | `Alert`, `Packet`, `Reply` |
+| link message `type` | `Alert`, `Packet`, `Reply`, `Measurement`, `Symptom`, `ProtocolStep` |
 | link message `state` (lowercase) | `held`, `in_flight`, `delivered` |
 | `status.rule` (lowercase) | `none`, `threshold`, `zscore`, `threshold+zscore`; alert `ruleId` can also be `symptom` |
 | `status.direction` (lowercase) | `high`, `low`, `null` when green |
@@ -63,7 +65,96 @@ Metric codes come from `config/metrics.yaml`: `hr_rest`, `bp_sys`, `bp_dia`, `te
 
 ## Roles
 
-Not enforced yet: every endpoint is open. Mock roles are added in the next change and documented here.
+Mock auth for the demo (the spec asks for mock login only). Send these headers on every crew and ground call:
+
+| Header | Value |
+|---|---|
+| `X-Role` | `crew` or `ground` (case-insensitive) |
+| `X-Crew-Id` | for `crew`: the crew member's `id` from `GET /api/crew` |
+
+Set them once in a fetch wrapper. The login page becomes a role picker: choose ground, or crew plus a crew member.
+
+| Who | Can |
+|---|---|
+| crew | Read and write **their own** data only (`/api/crew/{their id}/…` and their own protocol runs). `GET /api/crew` returns only themselves. |
+| ground | Read any crew member's baselines, measurements and alerts, the ground inbox and overview, but **only data delivered through the link queue**. Ground cannot write crew data and cannot read reminders (reminder progress stays on the crew side). |
+| no header | `GET /api/mission`, `/api/config/*`, `/api/link/queue` and all `/api/demo/*` and `POST /api/mission/start` stay open for the presenter. |
+
+**What "delivered" means.** Every in-flight measurement, symptom log and protocol event is synced to ground as a link message (types `Measurement`, `Symptom`, `ProtocolStep`), next to `Alert` and `Packet`. Ground sees a record only after its message arrives:
+
+- measurements: pre-flight data (entered on the ground) plus in-flight readings with `syncedAt` set (`syncedAt` = the time the sync message was delivered)
+- alerts: only once their `Alert` message is delivered
+- symptoms and protocol steps: as `Symptom` / `ProtocolStep` messages in `GET /api/ground/inbox`
+- the overview grid uses only delivered readings
+
+Errors: missing or unknown `X-Role` → 401 `NO_ROLE`; crew without a valid `X-Crew-Id` → 401 `NO_676ba813-0f7f-48bf-97cb-728da239a832`; someone else's data or a ground-only endpoint → 403 `FORBIDDEN`.
+
+```json
+{
+  "success": false,
+  "data": null,
+  "error": {
+    "code": "NO_ROLE",
+    "message": "Send the X-Role header: crew or ground.",
+    "details": null
+  }
+}
+```
+
+```json
+{
+  "success": false,
+  "data": null,
+  "error": {
+    "code": "FORBIDDEN",
+    "message": "Crew members can only access their own data.",
+    "details": null
+  }
+}
+```
+
+Ground reading a crew member's alerts after delivery (same shape as the crew view):
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "9d950f80-239c-4f38-91f5-ed9fe53d5dcf",
+      "crewMemberId": "676ba813-0f7f-48bf-97cb-728da239a832",
+      "measurementId": "9efba5f2-7f92-4edd-98db-6fd43322d545",
+      "level": "Red",
+      "reason": "Resting heart rate 130 bpm: Above the critical limit of 120 bpm. +19.6 SD from your personal baseline (n=14).",
+      "ruleId": "threshold+zscore",
+      "createdAt": "2026-11-14T06:05:01.038939+00:00",
+      "acknowledgedBy": null,
+      "context": {
+        "originalLevel": "Red",
+        "level": "Red",
+        "downgraded": false,
+        "downgradedBy": [],
+        "downgradeBlockedReason": null,
+        "factors": [
+          {
+            "ruleId": "adaptation_window",
+            "message": "You are in the first 14 days of the mission. Fluid shifts to the upper body and early heart changes occur while you adapt; the effect on your readings is possible but not established.",
+            "severityModifier": 0,
+            "sources": [
+              {
+                "id": "C4",
+                "publisher": "NASA",
+                "title": "The Heart of the Matter, Cardiovascular Concerns",
+                "url": "https://www.nasa.gov/content/cardiovascular-health"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "error": null
+}
+```
 
 ---
 
@@ -76,13 +167,13 @@ Role: any. Mission state, mission clock and link. `onboardFirst` is true when th
 {
   "success": true,
   "data": {
-    "id": "e0833b9d-a4a3-4be6-add6-534a4c0b8140",
+    "id": "cecac03c-d4f7-427c-a452-1beac0af031b",
     "name": "Demo Mars transit (SYNTHETIC DATA)",
     "environment": "Transit",
     "launchDate": "2026-11-14T06:00:00+00:00",
     "mode": "Inflight",
-    "missionNow": "2026-11-14T06:05:00.6803768+00:00",
-    "metSeconds": 300.68,
+    "missionNow": "2026-11-14T06:05:00.5966646+00:00",
+    "metSeconds": 300.597,
     "met": "0d 00:05:00",
     "clockRate": 1,
     "clockPaused": false,
@@ -302,7 +393,7 @@ Role: crew (own entry), ground (all).
   "success": true,
   "data": [
     {
-      "id": "3d930bba-cd6d-4c14-b519-e760578b50e2",
+      "id": "676ba813-0f7f-48bf-97cb-728da239a832",
       "name": "Alex Rivera (synthetic)",
       "role": "Commander",
       "age": 45,
@@ -311,7 +402,7 @@ Role: crew (own entry), ground (all).
       "notes": null
     },
     {
-      "id": "3c2abc81-07a8-4022-88e0-a69a207f126e",
+      "id": "a1ba8468-4d8d-4ea6-ab09-3c9590675a94",
       "name": "Jordan Lee (synthetic)",
       "role": "Mission specialist",
       "age": 41,
@@ -338,7 +429,7 @@ Role: crew (own), ground. `sd` is the personal SD; `sdEffective` is what z-score
       "sdEffective": 2.759,
       "shrunk": false,
       "n": 14,
-      "lockedAt": "2026-11-13T06:00:00.5307957+00:00",
+      "lockedAt": "2026-11-13T06:00:00.5370562+00:00",
       "warning": null
     },
     {
@@ -348,7 +439,7 @@ Role: crew (own), ground. `sd` is the personal SD; `sdEffective` is what z-score
       "sdEffective": 4.418,
       "shrunk": false,
       "n": 14,
-      "lockedAt": "2026-11-13T06:00:00.5307957+00:00",
+      "lockedAt": "2026-11-13T06:00:00.5370562+00:00",
       "warning": null
     }
   ],
@@ -357,20 +448,21 @@ Role: crew (own), ground. `sd` is the personal SD; `sdEffective` is what z-score
 ```
 
 ### GET /api/crew/{crewId}/measurements?metric=bp_sys&days=7
-Role: crew (own), ground. History for charts (story D1). `days` = 7, 14 or 30; omit for the full mission (pre-flight included). In-flight points carry their `status`; pre-flight points have `status: null`.
+Role: crew (own), ground (delivered only: pre-flight data and in-flight readings with `syncedAt`). History for charts (story D1). `days` = 7, 14 or 30; omit for the full mission (pre-flight included). In-flight points carry their `status`; pre-flight points have `status: null`.
 
 ```json
 {
   "success": true,
   "data": [
     {
-      "id": "0795ff7e-0577-4d31-bd9a-c3f930494a04",
+      "id": "1e74aae4-a1ab-48a9-9eaa-7e38a38fc907",
       "metricCode": "bp_sys",
       "value": 101,
       "recordedAt": "2026-11-07T08:43:05.4290793+00:00",
       "source": "Preflight",
       "qualityFlag": "Ok",
       "note": null,
+      "syncedAt": "2026-11-07T08:43:05.4290793+00:00",
       "status": null
     }
   ],
@@ -397,10 +489,10 @@ Optional fields: `confirmImplausible` (send `true` to save a value after a 422),
   "success": true,
   "data": {
     "measurement": {
-      "id": "b497b918-383e-4bd7-8138-870b0c9fa9d6",
+      "id": "bf6377ad-2e57-44f1-be75-44b509e1fd88",
       "metricCode": "bp_sys",
       "value": 111,
-      "recordedAt": "2026-11-14T06:05:00.9542433+00:00",
+      "recordedAt": "2026-11-14T06:05:00.9264148+00:00",
       "qualityFlag": "Ok"
     },
     "status": {
@@ -442,7 +534,7 @@ Optional fields: `confirmImplausible` (send `true` to save a value after a 422),
         }
       ]
     },
-    "alertId": "bc725656-dd69-49e9-9a61-f0dca543cc21",
+    "alertId": "0de4391b-005f-44f2-9a21-cadaba7fbad9",
     "protocolId": null,
     "protocol": null
   },
@@ -455,10 +547,10 @@ Optional fields: `confirmImplausible` (send `true` to save a value after a 422),
 ```json
 {
   "measurement": {
-    "id": "3780aaa9-1285-488a-845b-d42c5400b9c0",
+    "id": "96227d43-6b16-4a3f-afa3-eca4c0b9ae30",
     "metricCode": "bp_sys",
     "value": 110.8,
-    "recordedAt": "2026-11-15T06:38:28.8422479+00:00",
+    "recordedAt": "2026-11-15T06:38:38.4615802+00:00",
     "qualityFlag": "Ok"
   },
   "status": {
@@ -527,7 +619,7 @@ Optional fields: `confirmImplausible` (send `true` to save a value after a 422),
       }
     ]
   },
-  "alertId": "4be9ab50-13f4-4ae0-b10d-e57bf88960d7",
+  "alertId": "0fd84771-aad2-4832-9365-e5491fa45e1d",
   "protocolId": null,
   "protocol": null
 }
@@ -538,13 +630,13 @@ The stored alert carries the same object as `context`:
 ```json
 [
   {
-    "id": "4be9ab50-13f4-4ae0-b10d-e57bf88960d7",
-    "crewMemberId": "3c2abc81-07a8-4022-88e0-a69a207f126e",
-    "measurementId": "3780aaa9-1285-488a-845b-d42c5400b9c0",
+    "id": "0fd84771-aad2-4832-9365-e5491fa45e1d",
+    "crewMemberId": "a1ba8468-4d8d-4ea6-ab09-3c9590675a94",
+    "measurementId": "96227d43-6b16-4a3f-afa3-eca4c0b9ae30",
     "level": "Yellow",
     "reason": "Systolic blood pressure 110.8 mmHg: +2.0 SD from your personal baseline (n=14).",
     "ruleId": "zscore",
-    "createdAt": "2026-11-15T06:38:28.8422479+00:00",
+    "createdAt": "2026-11-15T06:38:38.4615802+00:00",
     "acknowledgedBy": null,
     "context": {
       "originalLevel": "Yellow",
@@ -579,10 +671,10 @@ The stored alert carries the same object as `context`:
 ```json
 {
   "measurement": {
-    "id": "62980d56-a9c5-42dc-a56b-d4e44bdd5e67",
+    "id": "9efba5f2-7f92-4edd-98db-6fd43322d545",
     "metricCode": "hr_rest",
     "value": 130,
-    "recordedAt": "2026-11-14T06:05:01.1015824+00:00",
+    "recordedAt": "2026-11-14T06:05:01.038939+00:00",
     "qualityFlag": "Ok"
   },
   "status": {
@@ -618,13 +710,13 @@ The stored alert carries the same object as `context`:
       }
     ]
   },
-  "alertId": "e77659e8-9e71-41cb-8ac5-3e17935a2d99",
+  "alertId": "9d950f80-239c-4f38-91f5-ed9fe53d5dcf",
   "protocolId": "chest_pain",
   "protocol": {
     "protocolId": "chest_pain",
     "matchedBy": "red_reading+symptom",
     "matchedSymptomLogIds": [
-      "d7d734c4-89ef-4964-b02a-1d027dd03774"
+      "d8c3d6fe-b2c9-449b-a87d-e46425afec60"
     ],
     "matchedRedAlertIds": []
   }
@@ -667,14 +759,14 @@ Validation error example (wrong JSON type):
 ```
 
 ### GET /api/crew/{crewId}/reminders?openOnly=true
-Role: crew (own). Due and overdue reminders from the crew-side schedule (works with the link down). `due` = due time reached; `overdue` = still pending after its due time. `openOnly=false` also returns done, late and missed ones.
+Role: crew (own) only. Due and overdue reminders from the crew-side schedule (works with the link down). `due` = due time reached; `overdue` = still pending after its due time. `openOnly=false` also returns done, late and missed ones.
 
 ```json
 {
   "success": true,
   "data": [
     {
-      "id": "f8f5f410-a7c1-4aa5-bde9-77b9cd09c8af",
+      "id": "5244eccc-f640-477d-9756-006a0f44cd18",
       "metricCode": "sleep_h",
       "dueAt": "2026-11-14T07:00:00+00:00",
       "dueMet": 3600,
@@ -684,7 +776,7 @@ Role: crew (own). Due and overdue reminders from the crew-side schedule (works w
       "completedAt": null
     },
     {
-      "id": "947c1a98-668e-460b-815d-fd102597cc34",
+      "id": "a52679f5-9aec-4aa3-9cee-a0077be55f1e",
       "metricCode": "bp_sys",
       "dueAt": "2026-11-14T08:00:00+00:00",
       "dueMet": 7200,
@@ -706,13 +798,13 @@ Role: crew (own), ground (delivered only, see Roles). Newest first. `context` is
   "success": true,
   "data": [
     {
-      "id": "e77659e8-9e71-41cb-8ac5-3e17935a2d99",
-      "crewMemberId": "3d930bba-cd6d-4c14-b519-e760578b50e2",
-      "measurementId": "62980d56-a9c5-42dc-a56b-d4e44bdd5e67",
+      "id": "9d950f80-239c-4f38-91f5-ed9fe53d5dcf",
+      "crewMemberId": "676ba813-0f7f-48bf-97cb-728da239a832",
+      "measurementId": "9efba5f2-7f92-4edd-98db-6fd43322d545",
       "level": "Red",
       "reason": "Resting heart rate 130 bpm: Above the critical limit of 120 bpm. +19.6 SD from your personal baseline (n=14).",
       "ruleId": "threshold+zscore",
-      "createdAt": "2026-11-14T06:05:01.1015824+00:00",
+      "createdAt": "2026-11-14T06:05:01.038939+00:00",
       "acknowledgedBy": null,
       "context": {
         "originalLevel": "Red",
@@ -744,13 +836,13 @@ Role: crew (own), ground (delivered only, see Roles). Newest first. `context` is
       }
     },
     {
-      "id": "04de9c34-897a-4fc3-99da-d0b483256a66",
-      "crewMemberId": "3d930bba-cd6d-4c14-b519-e760578b50e2",
+      "id": "be2c4058-66cf-4ef5-9649-dcadcff22303",
+      "crewMemberId": "676ba813-0f7f-48bf-97cb-728da239a832",
       "measurementId": null,
       "level": "Red",
       "reason": "Symptom reported: Chest pain / suspected cardiac event.",
       "ruleId": "symptom",
-      "createdAt": "2026-11-14T06:05:01.070108+00:00",
+      "createdAt": "2026-11-14T06:05:01.004846+00:00",
       "acknowledgedBy": null,
       "context": null
     }
@@ -773,14 +865,14 @@ Role: crew (own). A symptom listed in a protocol's `trigger.symptoms` (today: `c
 {
   "success": true,
   "data": {
-    "symptomLogId": "d7d734c4-89ef-4964-b02a-1d027dd03774",
-    "alertId": "04de9c34-897a-4fc3-99da-d0b483256a66",
+    "symptomLogId": "d8c3d6fe-b2c9-449b-a87d-e46425afec60",
+    "alertId": "be2c4058-66cf-4ef5-9649-dcadcff22303",
     "protocolId": "chest_pain",
     "protocol": {
       "protocolId": "chest_pain",
       "matchedBy": "symptom",
       "matchedSymptomLogIds": [
-        "d7d734c4-89ef-4964-b02a-1d027dd03774"
+        "d8c3d6fe-b2c9-449b-a87d-e46425afec60"
       ],
       "matchedRedAlertIds": []
     }
@@ -795,7 +887,7 @@ Role: crew (own). Starts a run of a protocol; `protocolVersion` is stored so gro
 ```json
 {
   "protocolId": "chest_pain",
-  "alertId": "e77659e8-9e71-41cb-8ac5-3e17935a2d99"
+  "alertId": "9d950f80-239c-4f38-91f5-ed9fe53d5dcf"
 }
 ```
 
@@ -803,12 +895,12 @@ Role: crew (own). Starts a run of a protocol; `protocolVersion` is stored so gro
 {
   "success": true,
   "data": {
-    "id": "1114ec7e-980f-4d3e-bdbb-39ed4cf6ba66",
-    "crewMemberId": "3d930bba-cd6d-4c14-b519-e760578b50e2",
+    "id": "b7af05e6-3af3-4c23-a4cf-0a4944b7102d",
+    "crewMemberId": "676ba813-0f7f-48bf-97cb-728da239a832",
     "protocolId": "chest_pain",
     "protocolVersion": "0.3",
-    "alertId": "e77659e8-9e71-41cb-8ac5-3e17935a2d99",
-    "startedAt": "2026-11-14T06:05:01.1854029+00:00",
+    "alertId": "9d950f80-239c-4f38-91f5-ed9fe53d5dcf",
+    "startedAt": "2026-11-14T06:05:01.1286492+00:00",
     "endedAt": null,
     "steps": []
   },
@@ -830,18 +922,18 @@ Role: crew (owner of the run). Logs one step with its mission time (story F3). `
 {
   "success": true,
   "data": {
-    "id": "1114ec7e-980f-4d3e-bdbb-39ed4cf6ba66",
-    "crewMemberId": "3d930bba-cd6d-4c14-b519-e760578b50e2",
+    "id": "b7af05e6-3af3-4c23-a4cf-0a4944b7102d",
+    "crewMemberId": "676ba813-0f7f-48bf-97cb-728da239a832",
     "protocolId": "chest_pain",
     "protocolVersion": "0.3",
-    "alertId": "e77659e8-9e71-41cb-8ac5-3e17935a2d99",
-    "startedAt": "2026-11-14T06:05:01.1854029+00:00",
+    "alertId": "9d950f80-239c-4f38-91f5-ed9fe53d5dcf",
+    "startedAt": "2026-11-14T06:05:01.1286492+00:00",
     "endedAt": null,
     "steps": [
       {
         "nodeId": "n_start",
         "answer": "No",
-        "at": "2026-11-14T06:05:01.2251336+00:00"
+        "at": "2026-11-14T06:05:01.1714365+00:00"
       }
     ]
   },
@@ -875,7 +967,7 @@ Role: crew (own). Queues an SBAR handoff packet as a link message (`type: Packet
 
 ```json
 {
-  "alertId": "e77659e8-9e71-41cb-8ac5-3e17935a2d99",
+  "alertId": "9d950f80-239c-4f38-91f5-ed9fe53d5dcf",
   "packet": {
     "situation": "chest pain, HR 130"
   },
@@ -887,20 +979,20 @@ Role: crew (own). Queues an SBAR handoff packet as a link message (`type: Packet
 {
   "success": true,
   "data": {
-    "id": "6c5284e9-8d19-4f39-8af1-779400dcb6f0",
+    "id": "a56487c5-ca33-4128-a4c1-e6cd794594ea",
     "direction": "CrewToGround",
     "type": "Packet",
-    "alertId": "e77659e8-9e71-41cb-8ac5-3e17935a2d99",
+    "alertId": "9d950f80-239c-4f38-91f5-ed9fe53d5dcf",
     "state": "in_flight",
-    "sentAt": "2026-11-14T06:05:01.2600387+00:00",
-    "deliverAt": "2026-11-14T06:17:01.2600387+00:00",
+    "sentAt": "2026-11-14T06:05:01.2015958+00:00",
+    "deliverAt": "2026-11-14T06:17:01.2015958+00:00",
     "deliveredAt": null,
     "ageSeconds": 0.004,
     "secondsUntilDelivery": 719.996,
     "payload": {
-      "crewMemberId": "3d930bba-cd6d-4c14-b519-e760578b50e2",
+      "crewMemberId": "676ba813-0f7f-48bf-97cb-728da239a832",
       "crewName": "Alex Rivera (synthetic)",
-      "createdAt": "2026-11-14T06:05:01.2600387+00:00",
+      "createdAt": "2026-11-14T06:05:01.2015958+00:00",
       "note": "felt dizzy",
       "packet": {
         "situation": "chest pain, HR 130"
@@ -931,28 +1023,28 @@ Used by `/api/link/queue`, `/api/ground/inbox` and the packet response.
 | `secondsUntilDelivery` | For in-flight messages; `null` otherwise |
 | `payload` | The message body: alert details, or the packet |
 
-### GET /api/link/queue
-Role: open (presenter view). Every message in every state, newest first, so the demo can show the queue draining.
+### GET /api/link/queue?type=Packet,Alert
+Role: open (presenter view). Every message in every state, newest first, so the demo can show the queue draining. `type` (optional, comma-separated) filters by message type.
 
 ```json
 {
   "success": true,
   "data": [
     {
-      "id": "6c5284e9-8d19-4f39-8af1-779400dcb6f0",
+      "id": "a56487c5-ca33-4128-a4c1-e6cd794594ea",
       "direction": "CrewToGround",
       "type": "Packet",
-      "alertId": "e77659e8-9e71-41cb-8ac5-3e17935a2d99",
+      "alertId": "9d950f80-239c-4f38-91f5-ed9fe53d5dcf",
       "state": "in_flight",
-      "sentAt": "2026-11-14T06:05:01.2600387+00:00",
-      "deliverAt": "2026-11-14T06:17:01.2600387+00:00",
+      "sentAt": "2026-11-14T06:05:01.2015958+00:00",
+      "deliverAt": "2026-11-14T06:17:01.2015958+00:00",
       "deliveredAt": null,
-      "ageSeconds": 0.032,
-      "secondsUntilDelivery": 719.968,
+      "ageSeconds": 0.041,
+      "secondsUntilDelivery": 719.959,
       "payload": {
-        "crewMemberId": "3d930bba-cd6d-4c14-b519-e760578b50e2",
+        "crewMemberId": "676ba813-0f7f-48bf-97cb-728da239a832",
         "crewName": "Alex Rivera (synthetic)",
-        "createdAt": "2026-11-14T06:05:01.2600387+00:00",
+        "createdAt": "2026-11-14T06:05:01.2015958+00:00",
         "note": "felt dizzy",
         "packet": {
           "situation": "chest pain, HR 130"
@@ -968,28 +1060,28 @@ Role: open (presenter view). Every message in every state, newest first, so the 
 
 ## Ground endpoints
 
-### GET /api/ground/inbox
-Role: ground. Only messages that have **arrived** through the link, newest first, with the age of the data.
+### GET /api/ground/inbox?type=Packet,Alert
+Role: ground. Only messages that have **arrived** through the link, newest first, with the age of the data. The inbox includes the sync messages (`Measurement`, `Symptom`, `ProtocolStep`); filter with `type` for a packet / alert view. Unknown type → 400 `BAD_TYPE`.
 
 ```json
 {
   "success": true,
   "data": [
     {
-      "id": "6c5284e9-8d19-4f39-8af1-779400dcb6f0",
+      "id": "a56487c5-ca33-4128-a4c1-e6cd794594ea",
       "direction": "CrewToGround",
       "type": "Packet",
-      "alertId": "e77659e8-9e71-41cb-8ac5-3e17935a2d99",
+      "alertId": "9d950f80-239c-4f38-91f5-ed9fe53d5dcf",
       "state": "delivered",
-      "sentAt": "2026-11-14T06:05:01.2600387+00:00",
-      "deliverAt": "2026-11-14T06:17:01.2600387+00:00",
-      "deliveredAt": "2026-11-14T06:17:01.2600387+00:00",
-      "ageSeconds": 1621.108,
+      "sentAt": "2026-11-14T06:05:01.2015958+00:00",
+      "deliverAt": "2026-11-14T06:17:01.2015958+00:00",
+      "deliveredAt": "2026-11-14T06:17:01.2015958+00:00",
+      "ageSeconds": 1621.137,
       "secondsUntilDelivery": null,
       "payload": {
-        "crewMemberId": "3d930bba-cd6d-4c14-b519-e760578b50e2",
+        "crewMemberId": "676ba813-0f7f-48bf-97cb-728da239a832",
         "crewName": "Alex Rivera (synthetic)",
-        "createdAt": "2026-11-14T06:05:01.2600387+00:00",
+        "createdAt": "2026-11-14T06:05:01.2015958+00:00",
         "note": "felt dizzy",
         "packet": {
           "situation": "chest pain, HR 130"
@@ -1002,21 +1094,21 @@ Role: ground. Only messages that have **arrived** through the link, newest first
 ```
 
 ### GET /api/ground/overview
-Role: ground. Crew x metrics grid (story D2) with the latest in-flight status per cell (`null` cells = no reading yet).
+Role: ground. Crew x metrics grid (story D2) with the latest **delivered** in-flight status per cell (`null` cells = nothing delivered yet).
 
 ```json
 {
   "success": true,
   "data": [
     {
-      "crewMemberId": "3d930bba-cd6d-4c14-b519-e760578b50e2",
+      "crewMemberId": "676ba813-0f7f-48bf-97cb-728da239a832",
       "name": "Alex Rivera (synthetic)",
       "role": "Commander",
       "cells": [
         {
           "metricCode": "hr_rest",
           "value": 130,
-          "recordedAt": "2026-11-14T06:05:01.1015824+00:00",
+          "recordedAt": "2026-11-14T06:05:01.038939+00:00",
           "status": {
             "level": "Red",
             "absoluteLevel": "Red",
@@ -1051,5 +1143,6 @@ Checked against `frontend/src` on this branch (SvelteKit, not React as the spec 
 7. **Enums:** PascalCase (`Inflight`, `Preflight`, `Transit`, `Pending`, `CrewToGround`, `Packet`) except `state`, `rule` and `direction`, which are lowercase strings.
 8. **Envelope:** every response is `{ success, data, error }`; read `data`.
 9. **Protocol steps** are an array `steps: [{ nodeId, answer, at }]`.
-10. **Login page:** replace the username/password form with the mock role picker described under Roles.
+10. **Login page:** replace the username/password form with the mock role picker described under Roles, and send `X-Role` / `X-Crew-Id` on every call.
+12. **Ground views lag by the link delay:** a reading the crew just entered appears for ground only after `oneWayLatencySeconds` (12 min in the demo mission) or after reconnect. Show `ageSeconds` / `syncedAt`, not "live".
 11. **Offline (not mock data, but a spec rule):** `frontend/src/lib/styles/globals.scss` imports Lato from Google Fonts. The crew UI must work without internet (spec section 6), so bundle the font locally.

@@ -68,9 +68,14 @@ public enum LinkDirection
 }
 
 // Packet (H2) and alert (E2) are crew -> ground; reply (H4) is optional, ground -> crew.
+// Measurement, Symptom and ProtocolStep sync crew-side records to ground (team decision): ground
+// sees a record only after its message is delivered. Beyond ER Fig. 5C, which lists packet | reply.
 public enum LinkMessageType
 {
     Alert,
     Packet,
     Reply,
+    Measurement,
+    Symptom,
+    ProtocolStep,
 }
