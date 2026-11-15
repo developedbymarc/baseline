@@ -29,6 +29,15 @@
 	let tiles = $state<Tile[]>([]);
 	let error = $state('');
 	let reporting = $state(false);
+	let showAll = $state(false);
+
+	// Most urgent first (overdue, then by due time). Three are shown so the main actions stay above
+	// the fold on a landscape tablet; the rest are one tap away.
+	const SHOWN = 3;
+	const sorted = $derived(
+		[...reminders].sort((a, b) => Number(b.overdue) - Number(a.overdue) || Number(a.dueMet ?? 0) - Number(b.dueMet ?? 0))
+	);
+	const visible = $derived(showAll ? sorted : sorted.slice(0, SHOWN));
 
 	const nameOf = (code: string) => metrics.find((m) => m.code === code)?.name ?? code;
 
@@ -82,7 +91,7 @@
 	<section class="flex flex-col gap-4" aria-labelledby="due">
 		<h2 id="due" class="font-display text-2xl font-semibold">Due now</h2>
 
-		{#each reminders as r (r.id ?? r.metricCode)}
+		{#each visible as r (r.id ?? r.metricCode)}
 			<a
 				href="/crew/measure?metric={r.metricCode}"
 				class="flex min-h-18 items-center gap-4 rounded-2xl border p-4 transition hover:brightness-125
@@ -102,6 +111,12 @@
 		{:else}
 			<p class="rounded-2xl border border-line bg-surface p-4 text-muted">Nothing due right now.</p>
 		{/each}
+
+		{#if sorted.length > SHOWN}
+			<Button variant="secondary" aria-expanded={showAll} onclick={() => (showAll = !showAll)}>
+				{showAll ? 'Show fewer' : `Show all (${sorted.length})`}
+			</Button>
+		{/if}
 
 		<p class="text-sm text-muted">Schedule set before launch. It keeps running with the link down.</p>
 

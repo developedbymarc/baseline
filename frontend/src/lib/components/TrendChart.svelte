@@ -99,4 +99,5 @@
 	});
 </script>
 
-<div bind:this={el} class="h-96 w-full"></div>
+<!-- Height follows the viewport (240-384 px) so the page fits a landscape tablet. -->
+<div bind:this={el} class="h-[clamp(240px,calc(100dvh-520px),384px)] w-full"></div>

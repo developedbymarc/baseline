@@ -95,34 +95,37 @@
 	</div>
 
 	{#if metric}
-		<header class="flex items-end justify-between gap-4">
+		<!-- Value, status and range on one row, so Done stays above the fold on a tablet. -->
+		<header class="flex flex-wrap items-end justify-between gap-4">
 			<div>
 				<p class="text-base text-muted">{metric.name} · {RANGES.find((r) => r.days === days)?.label}</p>
-				<p class="font-display text-6xl font-bold">
-					{latest ? fmt(latest.value) : '–'} <span class="text-3xl font-medium text-muted">{metric.unit}</span>
-				</p>
+				<div class="flex items-center gap-4">
+					<p class="font-display text-6xl font-bold">
+						{latest ? fmt(latest.value) : '–'} <span class="text-3xl font-medium text-muted">{metric.unit}</span>
+					</p>
+					{#if latestLevel}<StatusBadge level={latestLevel} />{/if}
+				</div>
 			</div>
-			{#if latestLevel}<StatusBadge level={latestLevel} size="lg" />{/if}
-		</header>
 
-		<div class="flex gap-2" role="group" aria-label="Range">
-			{#each RANGES as r (r.label)}
-				<button
-					type="button"
-					aria-pressed={r.days === days}
-					onclick={() => (days = r.days)}
-					class="min-h-14 rounded-xl border px-5 {r.days === days ? 'border-action bg-raised font-semibold' : 'border-line bg-surface text-muted'}"
-				>
-					{r.label}
-				</button>
-			{/each}
-		</div>
+			<div class="flex gap-2" role="group" aria-label="Range">
+				{#each RANGES as r (r.label)}
+					<button
+						type="button"
+						aria-pressed={r.days === days}
+						onclick={() => (days = r.days)}
+						class="min-h-14 rounded-xl border px-5 {r.days === days ? 'border-action bg-raised font-semibold' : 'border-line bg-surface text-muted'}"
+					>
+						{r.label}
+					</button>
+				{/each}
+			</div>
+		</header>
 
 		<div class="rounded-2xl border border-line bg-surface p-4">
 			{#if points.length}
 				<TrendChart {points} unit={metric.unit} {normal} {baseline} />
 			{:else}
-				<p class="grid h-96 place-items-center text-muted">No readings in this range.</p>
+				<p class="grid h-[clamp(240px,calc(100dvh-520px),384px)] place-items-center text-muted">No readings in this range.</p>
 			{/if}
 		</div>
 
