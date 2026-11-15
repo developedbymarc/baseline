@@ -103,9 +103,9 @@
 				{#if report.members.length > 1}
 					<h2 class="font-display text-xl font-semibold">{member.name} <span class="text-sm font-normal text-muted">{member.role}</span></h2>
 				{/if}
-				<div class="overflow-x-auto rounded-2xl border border-line bg-surface">
+				<div class="max-h-[70vh] overflow-auto rounded-2xl border border-line bg-surface">
 					<table class="w-full text-left text-sm">
-						<thead class="text-muted">
+						<thead class="sticky top-0 z-10 bg-surface text-muted shadow-[0_1px_0_var(--color-line)]">
 							<tr class="border-b border-line">
 								<th scope="col" class="px-4 py-3 font-medium">Metric</th>
 								<th scope="col" class="px-4 py-3 font-medium">Window mean (n)</th>

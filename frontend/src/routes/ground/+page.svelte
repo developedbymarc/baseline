@@ -39,9 +39,10 @@
 <div class="grid gap-8 lg:grid-cols-[1fr_20rem]">
 	<section class="space-y-4" aria-labelledby="crew">
 		<h1 id="crew" class="sr-only">Crew overview</h1>
-		<div class="overflow-x-auto rounded-2xl border border-line bg-surface">
+		<!-- Scrolls inside its own box (both ways) with the header row pinned. -->
+		<div class="max-h-[70vh] overflow-auto rounded-2xl border border-line bg-surface">
 			<table class="w-full text-left">
-				<thead class="text-sm text-muted">
+				<thead class="sticky top-0 z-10 bg-surface text-sm text-muted shadow-[0_1px_0_var(--color-line)]">
 					<tr class="border-b border-line">
 						<th scope="col" class="px-4 py-3 font-medium">Crew</th>
 						{#each columns as m (m.code)}<th scope="col" class="px-4 py-3 font-medium">{m.name}</th>{/each}
@@ -84,7 +85,7 @@
 
 		<p class="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted">
 			<StatusBadge level="Green" /><StatusBadge level="Yellow" /><StatusBadge level="Red" />
-			<span>Shape and word always shown with the colour. * lowered by context.</span>
+			<span>Shape and word always shown with the colour. * lowered by context. Ages are mission time.</span>
 		</p>
 	</section>
 
