@@ -19,6 +19,19 @@
 	const protocolId = $derived(flow.outcomes.find((o) => o.response.protocolId)?.response.protocolId);
 	const packetDraft = $derived(flow.outcomes.find((o) => o.response.packetDraft)?.response.packetDraft);
 
+	// Plain words for status.rule on a crew screen (ui-spec: no jargon such as "zscore").
+	const RULE_TEXT: Record<string, string> = {
+		none: 'Checked against: fixed limits and your personal baseline',
+		threshold: 'Flagged by: a fixed limit',
+		zscore: 'Flagged by: your personal baseline',
+		'threshold+zscore': 'Flagged by: a fixed limit and your personal baseline'
+	};
+	const ruleText = $derived.by(() => {
+		const s = response?.status;
+		if (!s) return '';
+		const text = RULE_TEXT[s.rule ?? 'none'] ?? RULE_TEXT.none;
+		return s.baselineN != null ? `${text} (n=${s.baselineN})` : text;
+	});
 	const sourceLines = $derived(current && response ? statusSourceLines(current.metric, response.status) : []);
 	const original = $derived(response?.context ? toLevel(response.context.originalLevel) : null);
 	const loweredBy = $derived.by(() => {
@@ -78,8 +91,9 @@
 			{/if}
 
 			<p class="text-base text-muted">{current.metric.name}</p>
-			<p class="font-display text-8xl leading-none font-bold">{fmt(current.value)}</p>
-			<p class="font-display text-2xl text-muted">{current.metric.unit}</p>
+			<p class="font-display text-[88px] leading-none font-bold">
+				{fmt(current.value)}<span class="ml-3 text-2xl font-medium text-muted">{current.metric.unit}</span>
+			</p>
 
 			<StatusBadge {level} size="lg" note={loweredNote} />
 
@@ -92,10 +106,7 @@
 
 			{#if response.status.reason}<p class="text-lg">{response.status.reason}</p>{/if}
 			{#each sourceLines as line (line)}<p class="text-sm text-muted">{line}</p>{/each}
-			<p class="mt-auto text-sm text-muted">
-				{#if response.status.rule}Rule fired: {response.status.rule}{/if}
-				{#if response.status.baselineN != null} · baseline n={response.status.baselineN}{/if}
-			</p>
+			<p class="mt-auto text-sm text-muted">{ruleText}</p>
 		</section>
 
 		<section class="flex flex-col gap-4" aria-labelledby="why">
