@@ -60,12 +60,20 @@ class Flow {
 		};
 	}
 
-	/** Called when the protocol run ends. Closes every alert of the episode, so none reopens on reload. */
-	closeAlert() {
+	/**
+	 * Takes the banner down (packet sent) but keeps a protocol run going. Every alert of the
+	 * episode is marked closed, so none reopens on reload.
+	 */
+	dismissAlert() {
 		const ids = [...this.#episode, this.alert?.alertId].filter((x): x is string => !!x);
 		if (ids.length && browser) sessionStorage.setItem(CLOSED, JSON.stringify([...new Set([...this.#closed(), ...ids])]));
 		this.#episode = [];
 		this.alert = null;
+	}
+
+	/** Called when the protocol run ends (or a packet is sent with no run): banner down and run state cleared. */
+	closeAlert() {
+		this.dismissAlert();
 		this.run = null;
 		this.protocol = null;
 		this.nodeId = null;
