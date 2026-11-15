@@ -58,7 +58,7 @@
 				>
 					<option value="" disabled>Select a crew member…</option>
 					{#each crew as member (member.id)}
-						<option value={member.id}>{member.name} ({member.id}) · {member.role}</option>
+						<option value={member.id}>{member.name} · {member.role}</option>
 					{/each}
 				</select>
 			</label>
