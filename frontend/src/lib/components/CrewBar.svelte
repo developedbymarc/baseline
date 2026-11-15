@@ -24,7 +24,7 @@
 	</div>
 
 	<p class="font-display text-xl font-medium whitespace-nowrap tabular-nums">
-		{#if m}MET {m.met}{#if missionDay(m.met)}<span class="text-muted">{' · '}Day {missionDay(m.met)}</span>{/if}{:else}MET –{/if}
+		{#if m}MET {m.met}{#if missionDay(m.met)}<span class="text-muted">&nbsp;· Day {missionDay(m.met)}</span>{/if}{:else}MET –{/if}
 	</p>
 
 	<div class="flex items-center justify-end gap-3 text-sm whitespace-nowrap text-muted">

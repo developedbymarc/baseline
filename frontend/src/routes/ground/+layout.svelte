@@ -5,6 +5,7 @@
 	import { mission } from '#lib/stores/mission.svelte.ts';
 	import { session } from '#lib/stores/session.svelte.ts';
 	import PresenterBar from '#lib/components/PresenterBar.svelte';
+	import OfflineBanner from '#lib/components/OfflineBanner.svelte';
 
 	let { children } = $props();
 	/** Bumped by the presenter bar: re-mounts the open screen so it refetches. */
@@ -25,6 +26,7 @@
 
 {#if signedIn}
 	<div class="flex min-h-dvh flex-col">
+		<OfflineBanner />
 		<header class="grid grid-cols-[1fr_auto_1fr] items-center gap-4 border-b border-line bg-surface px-6 py-3 print:hidden">
 			<div class="flex items-center gap-3">
 				<span class="font-display text-xl font-bold tracking-widest">BASELINE · GROUND</span>

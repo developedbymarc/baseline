@@ -7,6 +7,7 @@
 	import { session } from '#lib/stores/session.svelte.ts';
 	import AlertBanner from '#lib/components/AlertBanner.svelte';
 	import CrewBar from '#lib/components/CrewBar.svelte';
+	import OfflineBanner from '#lib/components/OfflineBanner.svelte';
 	import PresenterBar from '#lib/components/PresenterBar.svelte';
 	import { crewList } from '#lib/demo.ts';
 
@@ -60,6 +61,7 @@
 {#if signedIn}
 	<div class="flex min-h-dvh flex-col">
 		<AlertBanner />
+		<OfflineBanner />
 		<CrewBar />
 		<main class="mx-auto w-full max-w-6xl flex-1 px-6 py-6">{#key version}{@render children()}{/key}</main>
 		<footer class="border-t border-line px-6 py-3 text-xs text-muted">

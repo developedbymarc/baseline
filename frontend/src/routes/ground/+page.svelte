@@ -6,11 +6,13 @@
 	import { LEVEL_WORD, ageText, fmt, shownLevel, toLevel } from '#lib/format.ts';
 	import { mission } from '#lib/stores/mission.svelte.ts';
 	import StatusBadge from '#lib/components/StatusBadge.svelte';
+	import ErrorBox from '#lib/components/ErrorBox.svelte';
 
 	let metrics = $state<Metric[]>([]);
 	let rows = $state<OverviewRow[]>([]);
 	let inbox = $state<LinkMessage[]>([]);
 	let error = $state('');
+	let loaded = $state(false);
 
 	const columns = $derived(metrics.some((m) => m.hasStatus) ? metrics.filter((m) => m.hasStatus) : metrics);
 	const lowered = (c: OverviewCell) => !!c.context?.downgraded;
@@ -21,6 +23,7 @@
 		try {
 			[rows, inbox] = await Promise.all([api.overview(), api.inbox()]);
 			error = '';
+			loaded = true;
 		} catch (e) {
 			error = errorMessage(e);
 		}
@@ -77,7 +80,7 @@
 							{/each}
 						</tr>
 					{:else}
-						<tr><td class="px-4 py-6 text-muted" colspan={columns.length + 1}>No crew data has arrived yet.</td></tr>
+						<tr><td class="px-4 py-6 text-muted" colspan={columns.length + 1}>{loaded ? 'No crew data has arrived yet.' : 'Loading…'}</td></tr>
 					{/each}
 				</tbody>
 			</table>
@@ -101,9 +104,9 @@
 				<p class="mt-1 text-xs text-muted">{m.ageOfData}</p>
 			</a>
 		{:else}
-			<p class="text-sm text-muted">Nothing has arrived. Ground cannot see messages still in flight.</p>
+			<p class="text-sm text-muted">{loaded ? 'Nothing has arrived. Ground cannot see messages still in flight.' : 'Loading…'}</p>
 		{/each}
 	</aside>
 </div>
 
-{#if error}<p role="alert" class="mt-6 rounded-xl border border-act bg-act-surface p-4 text-act-ink">{error}</p>{/if}
+{#if error}<div class="mt-6"><ErrorBox message={error} onretry={refresh} /></div>{/if}

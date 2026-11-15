@@ -6,6 +6,7 @@
 	import { mission } from '#lib/stores/mission.svelte.ts';
 	import { session } from '#lib/stores/session.svelte.ts';
 	import Button from '#lib/components/Button.svelte';
+	import ErrorBox from '#lib/components/ErrorBox.svelte';
 	import Icon from '#lib/components/Icon.svelte';
 
 	const DEFAULT_PROTOCOL = 'chest_pain';
@@ -146,7 +147,8 @@
 			{/if}
 		</div>
 
-		{#if error}<p role="alert" class="rounded-xl border border-act bg-act-surface p-4 text-act-ink">{error}</p>{/if}
+		{#if error}<ErrorBox message={error} />{/if}
+		<p class="min-h-5 text-sm text-muted" aria-live="polite">{busy ? 'Logging this step…' : ''}</p>
 
 		{#if node.type === 'question'}
 			<div class="grid gap-4 sm:grid-cols-2">
@@ -184,7 +186,7 @@
 		{#if protocol.disclaimer}<p class="text-xs text-muted">{protocol.disclaimer}</p>{/if}
 	</div>
 {:else if error}
-	<p role="alert" class="rounded-xl border border-act bg-act-surface p-4 text-act-ink">{error}</p>
+	<ErrorBox message={error} />
 {:else}
 	<p class="text-muted">Loading protocol…</p>
 {/if}

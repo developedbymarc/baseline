@@ -5,6 +5,7 @@
 	import { LEVEL_WORD, fmt, shownLevel } from '#lib/format.ts';
 	import { session } from '#lib/stores/session.svelte.ts';
 	import Button from '#lib/components/Button.svelte';
+	import ErrorBox from '#lib/components/ErrorBox.svelte';
 	import StatusBadge from '#lib/components/StatusBadge.svelte';
 	import TrendChart, { type Band, type TrendPoint } from '#lib/components/TrendChart.svelte';
 
@@ -21,6 +22,9 @@
 	let code = $state('');
 	let days = $state(7);
 	let error = $state('');
+	let loading = $state(true);
+	/** Bumped by "Try again" to rerun the readings request. */
+	let retry = $state(0);
 
 	const metric = $derived(metrics.find((m) => m.code === code));
 	const sorted = $derived([...readings].sort((a, b) => Date.parse(a.recordedAt) - Date.parse(b.recordedAt)));
@@ -70,12 +74,15 @@
 	});
 
 	$effect(() => {
+		void retry;
 		if (!code) return;
 		let stale = false;
+		loading = true;
 		api
 			.measurements(session.crewId, code, days || undefined)
 			.then((r) => !stale && ((readings = r), (error = '')))
-			.catch((e) => !stale && (error = errorMessage(e)));
+			.catch((e) => !stale && (error = errorMessage(e)))
+			.finally(() => !stale && (loading = false));
 		return () => (stale = true);
 	});
 </script>
@@ -125,7 +132,7 @@
 			{#if points.length}
 				<TrendChart {points} unit={metric.unit} {normal} {baseline} />
 			{:else}
-				<p class="grid h-[clamp(240px,calc(100dvh-520px),384px)] place-items-center text-muted">No readings in this range.</p>
+				<p class="grid h-[clamp(240px,calc(100dvh-520px),384px)] place-items-center text-muted">{loading ? 'Loading readings…' : 'No readings in this range.'}</p>
 			{/if}
 		</div>
 
@@ -135,5 +142,5 @@
 		</div>
 	{/if}
 
-	{#if error}<p role="alert" class="rounded-xl border border-act bg-act-surface p-4 text-act-ink">{error}</p>{/if}
+	{#if error}<ErrorBox message={error} onretry={() => retry++} />{/if}
 </div>

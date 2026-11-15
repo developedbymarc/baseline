@@ -7,6 +7,7 @@
 	import { session } from '#lib/stores/session.svelte.ts';
 	import Button from '#lib/components/Button.svelte';
 	import PacketBoxes from '#lib/components/PacketBoxes.svelte';
+	import ErrorBox from '#lib/components/ErrorBox.svelte';
 
 	const MAX_NOTE = 500;
 
@@ -21,13 +22,15 @@
 	const runNode = $derived(flow.protocol?.treeYaml.find((n) => n.id === flow.nodeId));
 
 	// The draft is rebuilt from the latest data. Fall back to the one that came with the result.
-	onMount(async () => {
+	async function loadDraft() {
+		error = '';
 		try {
 			packet = await api.packetDraft(session.crewId, flow.alert?.alertId, flow.run?.id);
 		} catch (e) {
 			if (!packet) error = errorMessage(e);
 		}
-	});
+	}
+	onMount(loadDraft);
 
 	async function send() {
 		sending = true;
@@ -115,5 +118,5 @@
 		<p class="text-muted">Building packet…</p>
 	{/if}
 
-	{#if error}<p role="alert" class="rounded-xl border border-act bg-act-surface p-4 text-act-ink">{error}</p>{/if}
+	{#if error}<ErrorBox message={error} onretry={packet ? (sent ? undefined : send) : loadDraft} />{/if}
 </div>

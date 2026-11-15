@@ -27,7 +27,7 @@
 	};
 	const sizes = { md: 'min-h-14 px-6 text-lg', lg: 'min-h-18 px-8 text-xl', xl: 'min-h-28 px-8 text-2xl' };
 	const classes = $derived(
-		`inline-flex items-center justify-center gap-3 rounded-2xl font-display font-semibold transition disabled:cursor-not-allowed ${variants[variant]} ${sizes[size]} ${className}`
+		`inline-flex items-center justify-center gap-3 rounded-2xl font-display font-semibold transition active:scale-[0.98] active:brightness-90 disabled:cursor-not-allowed disabled:active:scale-100 ${variants[variant]} ${sizes[size]} ${className}`
 	);
 </script>
 

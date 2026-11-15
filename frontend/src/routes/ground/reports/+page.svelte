@@ -6,6 +6,7 @@
 	} from '#lib/api/index.ts';
 	import { fmt, signed } from '#lib/format.ts';
 	import Button from '#lib/components/Button.svelte';
+	import ErrorBox from '#lib/components/ErrorBox.svelte';
 
 	const WINDOWS = [
 		{ id: 'biweekly', label: 'Biweekly' },
@@ -19,6 +20,8 @@
 	let scope = $state(page.url.searchParams.get('crew') ?? 'crew');
 	let report = $state<Report | null>(null);
 	let error = $state('');
+	/** Bumped by "Try again" to rerun the report request. */
+	let retry = $state(0);
 
 	const field = 'rounded-xl border border-line bg-surface px-3 py-2 text-sm';
 
@@ -38,6 +41,7 @@
 	});
 
 	$effect(() => {
+		void retry;
 		if (period == null) return;
 		let stale = false;
 		(scope === 'crew' ? api.crewReport(windowId, period) : api.memberReport(scope, windowId, period))
@@ -154,5 +158,5 @@
 		<p class="text-muted">Loading report…</p>
 	{/if}
 
-	{#if error}<p role="alert" class="rounded-xl border border-act bg-act-surface p-4 text-act-ink">{error}</p>{/if}
+	{#if error}<ErrorBox message={error} onretry={() => retry++} />{/if}
 </div>

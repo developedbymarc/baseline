@@ -7,12 +7,20 @@
 	import Button from '#lib/components/Button.svelte';
 	import PacketBoxes from '#lib/components/PacketBoxes.svelte';
 	import StatusBadge from '#lib/components/StatusBadge.svelte';
+	import ErrorBox from '#lib/components/ErrorBox.svelte';
 	import type { Packet } from '#lib/api/types.ts';
 
 	let messages = $state<LinkMessage[]>([]);
 	let selectedId = $state<string | null>(page.url.searchParams.get('id'));
 	let showText = $state(false);
 	let error = $state('');
+	let loaded = $state(false);
+
+	const load = () =>
+		api
+			.inbox()
+			.then((m) => ((messages = m), (error = ''), (loaded = true)))
+			.catch((e) => (error = errorMessage(e)));
 
 	const selected = $derived(messages.find((m) => m.id === selectedId) ?? messages[0]);
 	const packet = $derived(selected?.payload?.data ? (selected.payload as Packet) : null);
@@ -23,8 +31,6 @@
 	);
 
 	onMount(() => {
-		const load = () =>
-			api.inbox().then((m) => ((messages = m), (error = ''))).catch((e) => (error = errorMessage(e)));
 		load();
 		const timer = setInterval(load, 5000);
 		return () => clearInterval(timer);
@@ -45,7 +51,7 @@
 				<span class="block text-xs text-muted">{m.ageOfData}</span>
 			</button>
 		{:else}
-			<p class="text-sm text-muted">Nothing has arrived.</p>
+			<p class="text-sm text-muted">{loaded ? 'Nothing has arrived. Ground cannot see messages still in flight.' : 'Loading…'}</p>
 		{/each}
 	</nav>
 
@@ -113,4 +119,4 @@
 	{/if}
 </div>
 
-{#if error}<p role="alert" class="mt-6 rounded-xl border border-act bg-act-surface p-4 text-act-ink">{error}</p>{/if}
+{#if error}<div class="mt-6"><ErrorBox message={error} onretry={load} /></div>{/if}

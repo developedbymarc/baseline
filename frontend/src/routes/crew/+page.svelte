@@ -7,6 +7,7 @@
 	import { flow } from '#lib/stores/flow.svelte.ts';
 	import { session } from '#lib/stores/session.svelte.ts';
 	import Button from '#lib/components/Button.svelte';
+	import ErrorBox from '#lib/components/ErrorBox.svelte';
 	import Icon from '#lib/components/Icon.svelte';
 	import StatusBadge from '#lib/components/StatusBadge.svelte';
 	import ChestFigure from '#lib/components/ChestFigure.svelte';
@@ -50,7 +51,9 @@
 
 	const nameOf = (code: string) => metrics.find((m) => m.code === code)?.name ?? code;
 
-	onMount(async () => {
+	/** Reminders, tiles and chest figure; retried from the error box. */
+	async function load() {
+		error = '';
 		try {
 			[metrics, reminders] = await Promise.all([api.metrics(), api.reminders(session.crewId)]);
 			// One fetch per metric feeds both the tiles and the chest figure.
@@ -70,7 +73,8 @@
 		} catch (e) {
 			error = errorMessage(e);
 		}
-	});
+	}
+	onMount(load);
 
 	async function reportSymptom() {
 		reporting = true;
@@ -119,7 +123,7 @@
 				<span class="font-display text-lg font-semibold">Log</span>
 			</a>
 		{:else}
-			<p class="rounded-2xl border border-line bg-surface p-4 text-muted">Nothing scheduled right now.</p>
+			<p class="rounded-2xl border border-line bg-surface p-4 text-muted">{loaded ? 'Nothing scheduled right now.' : 'Loading…'}</p>
 		{/each}
 
 		{#if sorted.length > SHOWN}
@@ -142,6 +146,7 @@
 				{#if loaded}<ChestFigure heart={chest.heart} lungs={chest.lungs} heightClass="h-[150px] lg:h-[190px]" />{/if}
 			</div>
 			<ul class="grid min-w-0 flex-1 grid-cols-2 content-start gap-3 lg:grid-cols-1">
+				{#if !loaded && !error}<li class="rounded-2xl border border-line bg-surface px-4 py-6 text-muted">Loading readings…</li>{/if}
 				{#each tiles as t (t.label)}
 					<li class="rounded-2xl border border-line bg-surface px-4 py-3">
 						<p class="text-sm text-muted">{t.label}</p>
@@ -163,4 +168,4 @@
 	</section>
 </div>
 
-{#if error}<p role="alert" class="mt-6 rounded-xl border border-act bg-act-surface p-4 text-act-ink">{error}</p>{/if}
+{#if error}<div class="mt-6"><ErrorBox message={error} onretry={loaded ? undefined : load} /></div>{/if}
