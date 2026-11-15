@@ -29,6 +29,8 @@ class Flow {
 	/** 1-based count of protocol steps shown, for the header. */
 	step = $state(1);
 	packet = $state<Packet | null>(null);
+	/** Countdown of a timed protocol step, in mission time. Kept here so leaving to measure does not restart it. */
+	timer = $state<{ runId: string; step: number; endsAt: number } | null>(null);
 
 	#closed(): string[] {
 		if (!browser) return [];
@@ -79,6 +81,7 @@ class Flow {
 		this.nodeId = null;
 		this.step = 1;
 		this.packet = null;
+		this.timer = null;
 	}
 }
 

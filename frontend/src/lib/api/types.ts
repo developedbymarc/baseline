@@ -22,6 +22,8 @@ export interface Mission {
 	launchDate: string;
 	missionNow: string;
 	met: string;
+	clockRate: number;
+	clockPaused: boolean;
 	linkUp: boolean;
 	oneWayLatencySeconds: number;
 	onboardFirst: boolean;
