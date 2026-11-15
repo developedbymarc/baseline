@@ -129,8 +129,8 @@
 	</div>
 
 	{#if group}
-		<div class="grid gap-6 lg:grid-cols-[1fr_22rem]">
-			<section class="flex flex-col gap-5">
+		<div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
+			<section class="flex min-w-0 flex-col gap-5">
 				{#each group.metrics as m (m.code)}
 					<div>
 						<label for="v-{m.code}" class="mb-2 block text-base text-muted">
@@ -166,7 +166,8 @@
 									inputmode="decimal"
 									autocomplete="off"
 									bind:value={values[m.code]}
-									class="h-20 min-w-0 flex-1 rounded-2xl border-2 border-line bg-surface px-5 text-right font-display text-6xl font-semibold focus:border-action focus:outline-none"
+									size="1"
+									class="h-20 w-full min-w-0 flex-1 rounded-2xl border-2 border-line bg-surface px-5 text-right font-display text-6xl font-semibold focus:border-action focus:outline-none"
 								/>
 								<button
 									type="button"
@@ -196,7 +197,7 @@
 
 				{#if error}<p role="alert" class="rounded-xl border border-act bg-act-surface p-4 text-act-ink">{error}</p>{/if}
 
-				<Button size="lg" class="mt-auto" disabled={!ready || submitting || !!implausible} onclick={() => save()}>
+				<Button size="lg" disabled={!ready || submitting || !!implausible} onclick={() => save()}>
 					{submitting ? 'Saving…' : 'Save reading'}
 				</Button>
 			</section>
