@@ -2,7 +2,8 @@
 	import { page } from '$app/state';
 	import { onMount } from 'svelte';
 	import { api, errorMessage, type Baseline, type Metric, type Reading } from '#lib/api/index.ts';
-	import { LEVEL_WORD, fmt, shownLevel } from '#lib/format.ts';
+	import { LEVEL_WORD, fmt, metShort, shownLevel } from '#lib/format.ts';
+	import { mission } from '#lib/stores/mission.svelte.ts';
 	import { session } from '#lib/stores/session.svelte.ts';
 	import Button from '#lib/components/Button.svelte';
 	import ErrorBox from '#lib/components/ErrorBox.svelte';
@@ -32,7 +33,12 @@
 	const latestLevel = $derived(latest ? shownLevel(latest) : null);
 
 	const points = $derived<TrendPoint[]>(
-		sorted.map((r) => ({ label: r.recordedMet ?? r.recordedAt, value: r.value, level: shownLevel(r) }))
+		// Mission time on the axis (and in the chart's aria description), never wall-clock dates.
+		sorted.map((r) => ({
+			label: mission.state ? `MET ${metShort(r.recordedAt, mission.state.launchDate)}` : (r.recordedMet ?? r.recordedAt),
+			value: r.value,
+			level: shownLevel(r)
+		}))
 	);
 
 	const normal = $derived<Band | null>(
@@ -132,7 +138,7 @@
 			{#if points.length}
 				<TrendChart {points} unit={metric.unit} {normal} {baseline} />
 			{:else}
-				<p class="grid h-[clamp(240px,calc(100dvh-520px),384px)] place-items-center text-muted">{loading ? 'Loading readings…' : 'No readings in this range.'}</p>
+				<p class="grid h-[clamp(200px,calc(100dvh-600px),384px)] place-items-center text-muted">{loading ? 'Loading readings…' : 'No readings in this range.'}</p>
 			{/if}
 		</div>
 

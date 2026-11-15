@@ -112,29 +112,30 @@
 						<thead class="sticky top-0 z-10 bg-surface text-muted shadow-[0_1px_0_var(--color-line)]">
 							<tr class="border-b border-line">
 								<th scope="col" class="px-4 py-3 font-medium">Metric</th>
-								<th scope="col" class="px-4 py-3 font-medium">Window mean (n)</th>
-								<th scope="col" class="px-4 py-3 font-medium">Baseline (n)</th>
-								<th scope="col" class="px-4 py-3 font-medium">Change</th>
-								<th scope="col" class="px-4 py-3 font-medium">SD from baseline</th>
+								<th scope="col" class="px-4 py-3 text-right font-medium">Window mean (n)</th>
+								<th scope="col" class="px-4 py-3 text-right font-medium">Baseline (n)</th>
+								<th scope="col" class="px-4 py-3 text-right font-medium">Change</th>
+								<th scope="col" class="px-4 py-3 text-right font-medium">SD from baseline</th>
 								<th scope="col" class="px-4 py-3 font-medium">Trend</th>
-								<th scope="col" class="px-4 py-3 font-medium">Missed</th>
+								<th scope="col" class="px-4 py-3 text-right font-medium">Missed</th>
 							</tr>
 						</thead>
 						<tbody>
 							{#each member.rows as r (r.metricCode)}
 								<tr class="border-b border-line last:border-0">
 									<th scope="row" class="px-4 py-3 font-semibold">{r.metricName}</th>
-									<td class="px-4 py-3">{fmt(r.windowMean)} {r.unit} ({r.windowN})</td>
-									<td class="px-4 py-3">{fmt(r.baselineMean)} ({r.baselineN ?? '–'})</td>
-									<td class="px-4 py-3">{signed(r.delta)}</td>
-									<td class="px-4 py-3">
-										<span class="font-display text-lg font-bold">{signed(r.zSd)}</span>
+									<td class="px-4 py-3 text-right">{fmt(r.windowMean)} {r.unit} ({r.windowN})</td>
+									<td class="px-4 py-3 text-right">{fmt(r.baselineMean)} ({r.baselineN ?? '–'})</td>
+									<td class="px-4 py-3 text-right">{signed(r.delta)}</td>
+									<td class="px-4 py-3 text-right whitespace-nowrap">
+										<!-- Chip first, so the numbers line up on the right. -->
 										{#if r.lowConfidence}
-											<span class="ml-1 rounded border border-watch px-1.5 py-0.5 text-xs text-watch">low confidence</span>
+											<span class="mr-1 rounded border border-watch px-1.5 py-0.5 text-xs text-watch">low confidence</span>
 										{/if}
+										<span class="font-display text-lg font-bold">{signed(r.zSd)}</span>
 									</td>
 									<td class="px-4 py-3">{arrow(r.trend)} {r.trend}</td>
-									<td class="px-4 py-3">{r.missed} / {r.expected}</td>
+									<td class="px-4 py-3 text-right">{r.missed} / {r.expected}</td>
 								</tr>
 							{/each}
 						</tbody>
