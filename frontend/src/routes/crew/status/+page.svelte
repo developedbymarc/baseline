@@ -2,6 +2,7 @@
 	import { goto } from '$app/navigation';
 	import { onDestroy, onMount } from 'svelte';
 	import { LEVEL_WORD, fmt, ruleLabel, shownLevel, toLevel, worst } from '#lib/format.ts';
+	import { statusSourceLines } from '#lib/metrics.ts';
 	import { flow } from '#lib/stores/flow.svelte.ts';
 	import Button from '#lib/components/Button.svelte';
 	import Icon from '#lib/components/Icon.svelte';
@@ -18,6 +19,7 @@
 	const protocolId = $derived(flow.outcomes.find((o) => o.response.protocolId)?.response.protocolId);
 	const packetDraft = $derived(flow.outcomes.find((o) => o.response.packetDraft)?.response.packetDraft);
 
+	const sourceLines = $derived(current && response ? statusSourceLines(current.metric, response.status) : []);
 	const original = $derived(response?.context ? toLevel(response.context.originalLevel) : null);
 	const loweredBy = $derived.by(() => {
 		const ctx = response?.context;
@@ -89,6 +91,7 @@
 			{/if}
 
 			{#if response.status.reason}<p class="text-lg">{response.status.reason}</p>{/if}
+			{#each sourceLines as line (line)}<p class="text-sm text-muted">{line}</p>{/each}
 			<p class="mt-auto text-sm text-muted">
 				{#if response.status.rule}Rule fired: {response.status.rule}{/if}
 				{#if response.status.baselineN != null} · baseline n={response.status.baselineN}{/if}

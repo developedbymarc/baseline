@@ -47,6 +47,15 @@ export interface Metric {
 	normalHigh: number | null;
 	zWarn: number | null;
 	hasStatus: boolean;
+	/** Which limits each source backs, e.g. fields ["warn_high", "crit_high"]. Publisher "team" = team value. */
+	sources?: MetricSource[];
+}
+
+export interface MetricSource {
+	fields: string[];
+	publisher: string;
+	title: string;
+	url?: string | null;
 }
 
 export interface HowTo {
@@ -70,9 +79,12 @@ export interface ContextInfo {
 	factors: ContextFactor[];
 }
 
-/** Assumed: `status` of a measurement result. */
+/** `status` of a measurement result. */
 export interface StatusInfo {
 	level: RawLevel;
+	/** Level from the absolute limits alone; `direction` is "high", "low" or null when green. */
+	absoluteLevel?: RawLevel | null;
+	direction?: string | null;
 	reason?: string | null;
 	rule?: string | null;
 	baselineN?: number | null;
