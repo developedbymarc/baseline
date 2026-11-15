@@ -23,7 +23,7 @@
 	/** Bumped by "Try again" to rerun the report request. */
 	let retry = $state(0);
 
-	const field = 'rounded-xl border border-line bg-surface px-3 py-2 text-sm';
+	const field = 'min-h-11 rounded-xl border border-line bg-surface px-3 text-sm';
 
 	onMount(() => {
 		api.crew().then((c) => (crew = c)).catch((e) => (error = errorMessage(e)));
@@ -65,7 +65,7 @@
 					type="button"
 					aria-pressed={w.id === windowId}
 					onclick={() => (windowId = w.id)}
-					class="px-4 py-2 text-sm font-medium {w.id === windowId ? 'bg-raised text-ink' : 'bg-surface text-muted'}"
+					class="min-h-11 px-4 text-sm font-medium {w.id === windowId ? 'bg-raised text-ink' : 'bg-surface text-muted'}"
 				>
 					{w.label}
 				</button>
