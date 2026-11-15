@@ -94,7 +94,7 @@
 
 		{#if report.highlights.length}
 			<ul class="list-disc space-y-1 pl-6">
-				{#each report.highlights as h (h)}<li>{h}</li>{/each}
+				{#each report.highlights as h, i (i)}<li>{h}</li>{/each}
 			</ul>
 		{/if}
 
