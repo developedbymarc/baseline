@@ -25,7 +25,8 @@
 
 @layer base {
 	body {
-		@apply bg-bg font-sans text-ink antialiased;
+		/* Tabular figures everywhere: values, MET and ages do not shift as digits change. */
+		@apply bg-bg font-sans text-ink tabular-nums antialiased;
 	}
 	:focus-visible {
 		@apply outline-2 outline-offset-2 outline-action;
