@@ -25,10 +25,14 @@ export class ApiException extends Error {
 	}
 }
 
-/** Adds X-Role and X-Crew-Id to every request, read from the current session. */
+/**
+ * Adds X-Role and X-Crew-Id to every request, read from the current session. A call that passes
+ * its own X-Role (the presenter's demo example acts for a named crew member) keeps it.
+ */
 const identity: Middleware = {
 	async pre({ url, init }) {
 		const headers = { ...(init.headers as Record<string, string>) };
+		if (headers['X-Role']) return { url, init: { ...init, headers } };
 		if (session.role) headers['X-Role'] = session.role;
 		if (session.role === 'Crew' && session.crewId) headers['X-Crew-Id'] = session.crewId;
 		return { url, init: { ...init, headers } };

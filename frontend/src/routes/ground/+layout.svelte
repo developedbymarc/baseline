@@ -65,6 +65,6 @@
 		</p>
 
 		<main class="mx-auto w-full max-w-360 flex-1 px-6 py-6">{#key version}{@render children()}{/key}</main>
-		<PresenterBar onrefresh={() => version++} onreset={() => version++} />
+		<PresenterBar onrefresh={() => version++} onreset={() => { version++; }} />
 	</div>
 {/if}

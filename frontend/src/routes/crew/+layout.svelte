@@ -8,16 +8,32 @@
 	import AlertBanner from '#lib/components/AlertBanner.svelte';
 	import CrewBar from '#lib/components/CrewBar.svelte';
 	import PresenterBar from '#lib/components/PresenterBar.svelte';
+	import { crewList } from '#lib/demo.ts';
 
 	let { children } = $props();
 	/** Bumped by the presenter bar: re-mounts the open screen so it refetches. */
 	let version = $state(0);
 
-	// Reseed gives every crew member a new id, so the crew session ends here.
-	function afterReset() {
+	// Reseed gives every crew member a new id: sign in again as the same person (by name), or go
+	// back to the role picker if they cannot be found.
+	async function afterReset() {
+		const name = session.crewName;
+		const member = (await crewList().catch(() => [])).find((c) => c.name === name);
+		// New id first, then clear the flow, so nothing refetches with the old (deleted) id.
+		if (member) session.signIn('Crew', member);
+		else session.signOut();
 		flow.resetAll();
-		session.signOut();
-		goto('/');
+		if (member) {
+			version++;
+			await goto('/crew');
+		} else await goto('/');
+	}
+
+	// After a presenter action: refetch the open screen and pick up a new open red alert
+	// (e.g. the chest pain example when signed in as that crew member).
+	function afterAction() {
+		version++;
+		checkAlerts();
 	}
 	const signedIn = $derived(session.role === 'Crew' && !!session.crewId);
 
@@ -28,7 +44,7 @@
 	$effect(() => (signedIn ? mission.poll() : undefined));
 
 	// Keep the banner up after a reload: an unacknowledged red alert is still open.
-	$effect(() => {
+	function checkAlerts() {
 		if (!signedIn || flow.alert) return;
 		api
 			.alerts(session.crewId)
@@ -37,7 +53,8 @@
 				if (open) flow.openAlert({ alertId: open.id, reason: open.reason, protocolId: null });
 			})
 			.catch(() => {});
-	});
+	}
+	$effect(checkAlerts);
 </script>
 
 {#if signedIn}
@@ -48,6 +65,6 @@
 		<footer class="border-t border-line px-6 py-3 text-xs text-muted">
 			Decision support, not diagnosis. All crew data is synthetic.
 		</footer>
-		<PresenterBar onrefresh={() => version++} onreset={afterReset} />
+		<PresenterBar onrefresh={afterAction} onreset={afterReset} />
 	</div>
 {/if}
