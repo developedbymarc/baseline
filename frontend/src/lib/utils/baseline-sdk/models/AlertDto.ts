@@ -91,7 +91,8 @@ export function AlertDtoFromJSONTyped(json: any, ignoreDiscriminator: boolean): 
         'ruleId': json['ruleId'],
         'createdAt': (json['createdAt'] == null ? json['createdAt'] : parseDateTime(json['createdAt'])),
         'acknowledgedBy': json['acknowledgedBy'],
-        'context': FromJSON(json['context']),
+        // Patched: untyped `context` schema made the generator call a non-existent FromJSON().
+        'context': json['context'],
     };
 }
 
@@ -114,7 +115,8 @@ export function AlertDtoToJSONTyped(value?: AlertDto | null, ignoreDiscriminator
         'ruleId': value['ruleId'],
         'createdAt': value['createdAt'] == null ? value['createdAt'] : serializeDateTime(value['createdAt']),
         'acknowledgedBy': value['acknowledgedBy'],
-        'context': ToJSON(value['context']),
+        // Patched: untyped `context` schema made the generator call a non-existent ToJSON().
+        'context': value['context'],
     };
 }
 

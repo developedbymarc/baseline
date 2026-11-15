@@ -61,13 +61,13 @@
 		const run = flow.run;
 		if (!seconds || !run) return;
 		if (flow.timer?.runId === run.id && flow.timer.step === flow.step) return;
-		tick; // retry until the first mission poll has arrived
+		void tick; // read so the effect retries until the first mission poll has arrived
 		const now = mission.nowMs();
 		if (now != null) flow.timer = { runId: run.id, step: flow.step, endsAt: now + seconds * 1000 };
 	});
 
 	const secondsLeft = $derived.by(() => {
-		tick;
+		void tick; // re-evaluate twice a second
 		const seconds = Number(node?.timerS ?? 0);
 		if (!seconds) return 0;
 		const t = flow.timer;
