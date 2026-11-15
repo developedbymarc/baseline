@@ -122,7 +122,10 @@
 	}
 </script>
 
+<svelte:head><title>New measurement · BASELINE crew</title></svelte:head>
+
 <div class="space-y-6">
+	<h1 class="sr-only">New measurement</h1>
 	<!-- Metric picker: large segmented tabs, icon + name. -->
 	<div class="grid grid-cols-7 gap-2 rounded-2xl border border-line bg-surface p-2" role="group" aria-label="Metric">
 		{#each groups as g (g.id)}

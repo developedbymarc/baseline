@@ -93,7 +93,10 @@
 	});
 </script>
 
+<svelte:head><title>Trends · BASELINE crew</title></svelte:head>
+
 <div class="space-y-6">
+	<h1 class="sr-only">Trends</h1>
 	<div class="flex flex-wrap gap-2" role="group" aria-label="Metric">
 		{#each metrics as m (m.code)}
 			<button

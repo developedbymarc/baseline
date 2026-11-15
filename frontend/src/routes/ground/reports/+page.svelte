@@ -54,7 +54,10 @@
 		/rise|rising|up|increas/i.test(trend) ? '↗' : /fall|down|decreas/i.test(trend) ? '↘' : /stable/i.test(trend) ? '→' : '';
 </script>
 
+<svelte:head><title>Reports · BASELINE ground</title></svelte:head>
+
 <div class="space-y-5">
+	<h1 class="sr-only">Reports</h1>
 	<div class="flex flex-wrap items-center gap-4 print:hidden">
 		<div class="flex overflow-hidden rounded-xl border border-line" role="group" aria-label="Window">
 			{#each WINDOWS as w (w.id)}

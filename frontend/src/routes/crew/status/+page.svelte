@@ -101,7 +101,12 @@
 	}
 </script>
 
+<svelte:head>
+	<title>{current ? `${LEVEL_WORD[level]} · ${current.metric.name} ${fmt(current.value)} ${current.metric.unit}` : 'Result'} · BASELINE crew</title>
+</svelte:head>
+
 {#if current && response}
+	<h1 class="sr-only">Result: {current.metric.name}, {LEVEL_WORD[level]}</h1>
 	<div class="grid gap-6 lg:grid-cols-[22rem_1fr]">
 		<section class="flex flex-col gap-4 rounded-2xl border border-line bg-surface p-5" aria-label="Result">
 			{#if flow.outcomes.length > 1}
@@ -159,7 +164,7 @@
 
 			{#if chest}
 				<div class="rounded-2xl border border-line bg-surface p-4">
-					<ChestFigure heart={chest.heart} lungs={chest.lungs} size={170} layout="side" />
+					<ChestFigure heart={chest.heart} lungs={chest.lungs} heightClass="h-[120px] lg:h-[170px]" layout="side" />
 				</div>
 			{/if}
 

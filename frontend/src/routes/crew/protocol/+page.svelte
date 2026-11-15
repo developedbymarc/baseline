@@ -120,10 +120,12 @@
 	}
 </script>
 
+<svelte:head><title>{protocol ? `${protocol.title} · step ${flow.step}` : 'Protocol'} · BASELINE crew</title></svelte:head>
+
 {#if protocol && node}
 	<div class="mx-auto flex min-h-[calc(100dvh-13rem)] max-w-4xl flex-col gap-6">
 		<div class="flex justify-between text-sm text-muted">
-			<p>{protocol.title} · v{protocol.version} · step {flow.step}</p>
+			<h1>{protocol.title} · v{protocol.version} · step {flow.step}</h1>
 			<p>Every step is logged with its time</p>
 		</div>
 

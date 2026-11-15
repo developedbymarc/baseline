@@ -97,6 +97,9 @@
 	}
 </script>
 
+<svelte:head><title>Home · BASELINE crew</title></svelte:head>
+
+<h1 class="sr-only">Crew home</h1>
 <div class="grid gap-8 lg:grid-cols-2">
 	<section class="flex flex-col gap-4" aria-labelledby="due">
 		<h2 id="due" class="font-display text-2xl font-semibold">Measurements</h2>

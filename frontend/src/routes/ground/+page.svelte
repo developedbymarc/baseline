@@ -39,6 +39,8 @@
 	const kind = (m: LinkMessage) => (m.payload?.data ? 'Packet' : 'Alert');
 </script>
 
+<svelte:head><title>Crew overview · BASELINE ground</title></svelte:head>
+
 <div class="grid gap-8 lg:grid-cols-[1fr_20rem]">
 	<section class="space-y-4" aria-labelledby="crew">
 		<h1 id="crew" class="sr-only">Crew overview</h1>

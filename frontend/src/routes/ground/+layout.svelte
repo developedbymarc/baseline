@@ -61,10 +61,10 @@
 			</div>
 		</header>
 
-		<p class="border-b border-line bg-raised/60 px-6 py-2 text-sm print:hidden">
+		<aside class="border-b border-line bg-raised/60 px-6 py-2 text-sm print:hidden" aria-label="About this data">
 			Everything here is what has arrived through the link.
 			{#if mission.state}Crew data is at least {latencyText(mission.state.oneWayLatencySeconds)} old.{/if}
-		</p>
+		</aside>
 
 		<main class="mx-auto w-full max-w-360 flex-1 px-6 py-6">{#key version}{@render children()}{/key}</main>
 		<PresenterBar onrefresh={() => version++} onreset={() => { version++; }} />

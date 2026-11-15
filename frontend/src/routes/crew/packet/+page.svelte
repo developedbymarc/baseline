@@ -68,6 +68,8 @@
 	);
 </script>
 
+<svelte:head><title>Handoff packet · BASELINE crew</title></svelte:head>
+
 <div class="space-y-6">
 	<header class="flex items-baseline justify-between gap-4">
 		<h1 class="font-display text-3xl font-semibold">Handoff packet for ground</h1>

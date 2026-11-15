@@ -38,6 +38,9 @@
 
 </script>
 
+<svelte:head><title>Inbox · BASELINE ground</title></svelte:head>
+
+<h1 class="sr-only">Inbox</h1>
 <div class="grid gap-6 lg:grid-cols-[16rem_1fr]">
 	<nav class="space-y-2" aria-label="Messages">
 		{#each messages as m (m.id)}
