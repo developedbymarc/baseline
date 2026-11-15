@@ -4,6 +4,9 @@
 	import { LEVEL_WORD, fmt, ruleLabel, shownLevel, toLevel, worst } from '#lib/format.ts';
 	import { statusSourceLines } from '#lib/metrics.ts';
 	import { flow } from '#lib/stores/flow.svelte.ts';
+	import { session } from '#lib/stores/session.svelte.ts';
+	import { HEART_CODES, LUNG_CODES, chestLevels, latestReadings, levelsOf, type ChestLevels } from '#lib/chest.ts';
+	import ChestFigure from '#lib/components/ChestFigure.svelte';
 	import Button from '#lib/components/Button.svelte';
 	import Icon from '#lib/components/Icon.svelte';
 	import StatusBadge from '#lib/components/StatusBadge.svelte';
@@ -45,8 +48,22 @@
 	const lowered = $derived(!!response?.context?.downgraded && !!original);
 	const loweredNote = $derived(lowered ? `Lowered from ${LEVEL_WORD[original!]} by ${loweredBy.join(', ')}` : undefined);
 
+	// Chest figure: latest stored levels, overridden by the readings just saved (their shown level
+	// includes a context downgrade, which the history endpoint does not carry).
+	let chest = $state<ChestLevels | null>(null);
+
 	onMount(() => {
-		if (!flow.outcomes.length) goto('/crew');
+		if (!flow.outcomes.length) {
+			goto('/crew');
+			return;
+		}
+		latestReadings(session.crewId, [...HEART_CODES, ...LUNG_CODES])
+			.then((latest) => {
+				const levels = levelsOf(latest);
+				for (const o of flow.outcomes) levels[o.metric.code] = shownLevel(o.response);
+				chest = chestLevels(levels);
+			})
+			.catch(() => {});
 	});
 	onDestroy(() => clearInterval(timer));
 
@@ -127,6 +144,12 @@
 					No known factor found. Ground will see this as unexplained.
 				</p>
 			{/each}
+
+			{#if chest}
+				<div class="rounded-2xl border border-line bg-surface p-4">
+					<ChestFigure heart={chest.heart} lungs={chest.lungs} size={170} layout="side" />
+				</div>
+			{/if}
 
 			<div class="mt-auto flex gap-4 pt-4">
 				{#if overall === 'Red'}
