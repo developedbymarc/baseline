@@ -39,7 +39,12 @@
 	// the fold on a landscape tablet; the rest are one tap away.
 	const SHOWN = 3;
 	const sorted = $derived(
-		[...reminders].sort((a, b) => Number(b.overdue) - Number(a.overdue) || Number(a.dueMet ?? 0) - Number(b.dueMet ?? 0))
+		[...reminders].sort(
+			(a, b) =>
+				Number(b.overdue) - Number(a.overdue) ||
+				Number(!!b.due) - Number(!!a.due) ||
+				Number(a.dueMet ?? 0) - Number(b.dueMet ?? 0)
+		)
 	);
 	const visible = $derived(showAll ? sorted : sorted.slice(0, SHOWN));
 
@@ -90,27 +95,31 @@
 
 <div class="grid gap-8 lg:grid-cols-2">
 	<section class="flex flex-col gap-4" aria-labelledby="due">
-		<h2 id="due" class="font-display text-2xl font-semibold">Due now</h2>
+		<h2 id="due" class="font-display text-2xl font-semibold">Measurements</h2>
 
 		{#each visible as r (r.id ?? r.metricCode)}
 			<a
 				href="/crew/measure?metric={r.metricCode}"
-				class="flex min-h-18 items-center gap-4 rounded-2xl border p-4 transition hover:brightness-125
-					{r.overdue ? 'border-watch bg-watch-surface' : 'border-line bg-surface'}"
+				class="flex min-h-18 items-center gap-4 rounded-2xl border p-4 transition hover:brightness-125 active:brightness-90
+					{r.overdue ? 'border-watch bg-watch-surface' : r.due ? 'border-action bg-surface' : 'border-line bg-surface'}"
 			>
-				<Icon name="clock" class="size-7 shrink-0 {r.overdue ? 'text-watch' : 'text-action'}" />
+				<!-- Overdue / due now / later: told apart by icon and text, not colour alone. -->
+				<Icon
+					name={r.overdue ? 'triangle' : 'clock'}
+					class="size-7 shrink-0 {r.overdue ? 'text-watch' : r.due ? 'text-action' : 'text-muted'}"
+				/>
 				<span class="flex-1">
-					<span class="block text-lg font-semibold">{nameOf(r.metricCode)}</span>
-					<span class="block text-sm {r.overdue ? 'text-watch' : 'text-muted'}">
-						{#if r.overdue}Overdue{r.dueMet ? ` · was due ${formatMet(r.dueMet)} MET` : ''}{:else}Due{r.dueMet
-								? ` ${formatMet(r.dueMet)} MET`
-								: ''}{/if}
+					<span class="block text-lg font-semibold {r.overdue || r.due ? '' : 'text-muted'}">{nameOf(r.metricCode)}</span>
+					<span class="block text-sm {r.overdue ? 'text-watch' : r.due ? 'text-ink' : 'text-muted'}">
+						{#if r.overdue}Overdue{r.dueMet != null ? ` · was due ${formatMet(r.dueMet)} MET` : ''}
+						{:else if r.due}Due now
+						{:else}Later{r.dueMet != null ? ` · due ${formatMet(r.dueMet)} MET` : ''}{/if}
 					</span>
 				</span>
 				<span class="font-display text-lg font-semibold">Log</span>
 			</a>
 		{:else}
-			<p class="rounded-2xl border border-line bg-surface p-4 text-muted">Nothing due right now.</p>
+			<p class="rounded-2xl border border-line bg-surface p-4 text-muted">Nothing scheduled right now.</p>
 		{/each}
 
 		{#if sorted.length > SHOWN}

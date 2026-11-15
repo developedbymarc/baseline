@@ -138,6 +138,9 @@ export interface Reminder {
 	id?: string;
 	metricCode: string;
 	dueMet?: string | number | null;
+	/** Due time reached. */
+	due?: boolean;
+	/** Still pending after its due time. */
 	overdue: boolean;
 }
 
