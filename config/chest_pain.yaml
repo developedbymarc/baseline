@@ -1,5 +1,12 @@
 # =====================================================================================
-# BASELINE: config/chest_pain.yaml   (work package 2.2, owner: Serge)   DRAFT v0.3
+# BASELINE: config/chest_pain.yaml   (work package 2.2, owner: Serge)   DRAFT v0.4
+# =====================================================================================
+# CHANGES IN v0.4 (Nov 15, 2026, team decision 4A and source trace 8.3)
+#   - n_aspirin: dose numbers removed; the aspirin decision goes to the on-board medical
+#     checklist / flight surgeon (MedlinePlus S1: the emergency operator helps decide).
+#   - Unverified sources S3, S4, S5 and S7 removed; no node cites them any more.
+#   - New S8 (AHA warning signs, opened 2026-11-15) backs n_duration and n_other.
+#   - disclaimer: says that steps marked for medical review are not yet approved.
 # =====================================================================================
 # WHAT THIS FILE IS
 #   The chest pain emergency protocol, written as a decision tree. The app has no
@@ -38,13 +45,14 @@
 
 id: chest_pain                       # unique name the app uses to find this protocol
 title: Chest pain / suspected cardiac event   # title shown at the top of every screen
-version: "0.3"                      # quoted so it stays text ("0.10" is not "0.1"); bump on every change to a step or source (audit trail)
+version: "0.4"                   # quoted so it stays text ("0.10" is not "0.1"); bump on every change to a step or source (audit trail)
 language: en                         # language of the text below
 start: n_start                       # first node the runner opens; must match a node id
 
 disclaimer: >-                       # shown on the protocol screens (story F5)
   BASELINE gives decision support from public first-aid guidance. It does not diagnose.
   Most chest pain is not cardiac, but it cannot be told apart at the bedside, so act and notify ground.
+  Steps marked "needs medical review" have not yet been approved by a flight surgeon.
 
 trigger:                             # when the app offers to open this protocol (story E1); read by the backend
   symptoms: [chest_pain]             # symptom code from the symptom checklist (story C6)
@@ -108,7 +116,7 @@ tree_yaml:
       - { label: "Yes", next: n_other }
       - { label: "No",  next: n_other }
     log_answer: true                       # answer goes into the packet as the duration/onset detail
-    src: [S4]                              # guideline: chest discomfort has many forms, so ask about duration
+    src: [S8]                              # AHA: discomfort can last more than a few minutes, or go away and return
 
   # 6. Second logging question: other warning signs.
   - id: n_other
@@ -120,7 +128,7 @@ tree_yaml:
       - { label: "Yes", next: n_aspirin_q }
       - { label: "No",  next: n_aspirin_q }
     log_answer: true                       # goes to ground as a pre-answered follow-up (story H3)
-    src: [S2, S3, S4]
+    src: [S2, S8]                          # S8: upper-body discomfort, shortness of breath, cold sweat, nausea, lightheadedness
     note: >-
       Both answers lead to the same node on purpose: the guidance says do not try to work out
       the cause yourself. The answers are recorded for ground, not used to downgrade the response.
@@ -132,19 +140,22 @@ tree_yaml:
     options:
       - { label: "Yes or not sure", next: n_no_aspirin }   # when unsure, take the safer path
       - { label: "No",              next: n_aspirin }
-    src: [S1, S5]                          # aspirin only if not allergic and no dangerous condition
+    src: [S1]                              # aspirin only if not allergic and no dangerous condition
 
   # 8a. Aspirin path (only if the check above was clear).
   - id: n_aspirin
     type: action
     text: >-
-      If you can chew and swallow safely, chew one plain (not coated) 325 mg aspirin,
-      or the equivalent 162-325 mg. Do not give anything else by mouth unless a heart medicine
-      was already prescribed to this crew member.
+      Aspirin may be given only as the on-board medical checklist directs, or as the flight
+      surgeon instructs. If it is given, record it. Do not give anything else by mouth unless a
+      heart medicine was already prescribed to this crew member.
     next: n_notify
-    log: true                              # log that aspirin was taken, with time and dose
-    review: true                           # flight surgeon must approve dose and wording for the on-board medical kit
-    src: [S1, S7, S5]                      # S1: nothing by mouth otherwise; S7: 162-325 mg (secondary source); S5: NOT verified, see its note
+    log: true                              # log whether aspirin was given (ground needs to know)
+    review: true                           # needs medical review: dose and wording come from the on-board kit and flight surgeon, not this file
+    src: [S1]                              # S1: aspirin only if not allergic, the emergency operator helps decide; nothing else by mouth
+    note: >-
+      v0.4 removed the dose numbers (team decision 4A). No verified public source was found for a
+      dose in time (S5 and S7 were unverified), and the dose belongs to the on-board medical kit.
 
   # 8b. No-aspirin path.
   - id: n_no_aspirin
@@ -202,9 +213,9 @@ sources:
     publisher: MedlinePlus (U.S. National Library of Medicine), content by A.D.A.M., Inc.
     title: Heart attack first aid
     url: https://medlineplus.gov/ency/article/000063.htm
-    note: Call emergency number; sit, rest, loosen clothing; aspirin only if not allergic and no dangerous condition; nothing by mouth unless a prescribed heart medicine; CPR/AED if unresponsive and not breathing.
+    note: Call emergency number; sit, rest, loosen clothing; aspirin only if not allergic and no dangerous condition, and the emergency operator can help decide whether to take it (call for help first); nothing by mouth unless a prescribed heart medicine; CPR/AED if unresponsive and not breathing.
     reviewed: 2024-10-07               # last reviewed date shown on the page
-    checked: 2026-11-14                # date we checked it
+    checked: 2026-11-15                # date we checked it (aspirin wording rechecked for v0.4)
     opened: true
 
   - id: S2                             # "call for help, do not self-diagnose"
@@ -215,38 +226,6 @@ sources:
     checked: 2026-11-14
     opened: true
 
-  - id: S3                             # the 2021 guideline's key points
-    publisher: American College of Cardiology
-    title: 2021 AHA/ACC Chest Pain Guideline Perspectives (key points)
-    url: https://acc.org/latest-in-cardiology/ten-points-to-remember/2021/10/27/14/06/2021-guideline-for-chest-pain-gl_chestpain
-    note: Expedite evaluation of acute chest pain; patient education to call 9-1-1. Source guideline - Gulati M, et al. 2021 AHA/ACC/ASE/CHEST/SAEM/SCCT/SCMR Guideline for the Evaluation and Diagnosis of Chest Pain. J Am Coll Cardiol / Circulation 2021.
-    checked: 2026-11-14
-    opened: false                      # the ACC page redirected to a maintenance page on 2026-11-14; try the Circulation / JACC full text
-
-  - id: S4                            # what counts as a chest-pain symptom
-    publisher: ACC / AHA
-    title: 2021 Chest Pain Guideline pocket guide (key points)
-    url: https://cdn-corpweb.heartflow.com/assets/docs/ACC_AHA_Guidelines_ChestPain_PocketGuide_2021.pdf
-    note: Pain, pressure, tightness or discomfort in chest, shoulders, arms, neck, back, upper abdomen or jaw, plus shortness of breath and fatigue, are anginal equivalents. Replace with the guideline itself (doi 10.1161/CIR.0000000000001029).
-    checked: 2026-11-14
-    opened: false                      # search result only, third-party host
-
-  - id: S5                             # aspirin dose
-    publisher: AHA guideline excerpt (Guideline Central eGuideline)
-    title: AHA guidelines bundle, prehospital treatment excerpt
-    url: https://eguideline.guidelinecentral.com/i/129442/7
-    note: UNVERIFIED. A search snippet showed chewed aspirin 162-325 mg for suspected ACS, but opening the page showed only the title "UA/NSTEMI Guidelines App" and nothing about aspirin. Do not rely on S5; replace with the current AHA/ACC ACS guideline.
-    checked: 2026-11-14
-    opened: false
-
-  - id: S7                             # aspirin dose (secondary source)
-    publisher: HealthFirst (emergency kit supplier), quoting the 2025 ACC/AHA ACS guideline
-    title: Using Aspirin During a Cardiac-related Medical Emergency
-    url: https://www.healthfirst.com/knowledge-base/articles/using-aspirin-during-a-cardiac-related-medical-emergency/
-    note: Says the 2025 ACC/AHA ACS guideline (Table 7) recommends an oral aspirin load of 162-325 mg; one non-enteric-coated 325 mg tablet meets it; chewing speeds onset; not for known aspirin allergy, severe active bleeding, or someone who cannot safely chew and swallow. A vendor page, so confirm against the guideline itself.
-    checked: 2026-11-14
-    opened: false                      # seen in a search result only
-
   - id: S6                             # why on-board steps come first
     publisher: NASA Human Health and Performance
     title: Risk of Adverse Health Outcomes and Decrements in Performance due to Inflight Medical Conditions
@@ -254,4 +233,12 @@ sources:
     note: All human spaceflight needs some in-mission medical support; the ISS medical kit is basic; crew get basic medical training; a Medical Decision Support System is being studied for crews out of direct contact with Earth.
     updated: 2025-07-08
     checked: 2026-11-14
+    opened: true
+
+  - id: S8                             # duration and other warning signs (n_duration, n_other)
+    publisher: American Heart Association
+    title: Warning Signs of a Heart Attack
+    url: https://www.heart.org/en/health-topics/heart-attack/warning-signs-of-a-heart-attack
+    note: Chest discomfort can last more than a few minutes, or go away and then return; discomfort in one or both arms, back, neck, jaw or stomach; shortness of breath with or without chest discomfort; cold sweat, nausea, lightheadedness. No aspirin guidance on this page.
+    checked: 2026-11-15
     opened: true

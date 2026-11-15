@@ -1,5 +1,9 @@
 # =====================================================================================
-# BASELINE: config/context_rules.yaml   (work package 2.3, owner: Serge)   DRAFT v0.3
+# BASELINE: config/context_rules.yaml   (work package 2.3, owner: Serge)   DRAFT v0.4
+# =====================================================================================
+# CHANGES IN v0.4 (Nov 15, 2026, source trace 8.3)
+#   - short_sleep and high_stress also cite "team" (their thresholds are our own choices).
+#   - Mood scale note resolved: docs/API.md confirms 1 = worst, 5 = best.
 # =====================================================================================
 # WHAT THIS FILE IS
 #   The list of "known confounders": things that can move a vital sign without anything
@@ -51,7 +55,7 @@
 #   to red and update the spec/diagram wording.
 # =====================================================================================
 
-version: "0.3"            # quoted so it stays text; bump on every change to a rule or source
+version: "0.4"            # quoted so it stays text; bump on every change to a rule or source
 language: en
 
 policy:
@@ -76,7 +80,7 @@ rules:
       window_days: 3
       min_count: 2                # at least 2 of the last 3 nights; one bad night alone is not enough (team choice)
     message: "Short sleep (under 6 h on at least 2 of the last 3 nights) can raise blood pressure and resting heart rate."
-    source: [C1, C2]
+    source: [C1, C2, team]      # C1/C2: short sleep raises BP and HR; team: 6 h and 2 of 3 nights
     severity_modifier: -1
     review: false
 
@@ -163,7 +167,7 @@ rules:
     review: false
 
   # 6. High stress. Stress spikes BP and heart rate for a short time, then they return.
-  #    Assumes mood 5 = best, 1 = worst (NOTE: confirm the scale direction with B and Y).
+  #    Mood 5 = best, 1 = worst (confirmed in docs/API.md).
   - id: high_stress
     enabled: true
     applies_to: [hr_rest, bp_sys, bp_dia]
@@ -175,7 +179,7 @@ rules:
       value: 2                    # team value: a mood rating of 1 or 2
       window_h: 24
     message: "Your mood rating in the last 24 h was low (stress). Stress can raise blood pressure and heart rate for a short time; retake after resting."
-    source: [C9]
+    source: [C9, team]          # C9: stress raises BP and HR for a time; team: mood 1 or 2 counts as stress
     severity_modifier: -1
     review: false
 

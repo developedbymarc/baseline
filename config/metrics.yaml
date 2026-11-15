@@ -11,7 +11,8 @@
 #   null   = no limit on that side; the engine skips it
 #   plausible_min/max = typo check only (story C3), deliberately wide
 #   sd_pop = population SD used for the shrunk baseline SD when n < 10 (spec section 8). null = no cited value yet, so the person's own SD is used.
-#   A single red BP or SpO2 reading first triggers "retake".
+#   A red reading raises an alert at once (no automatic retake step; see docs/API.md).
+#   sd_pop for BP is NOT yet confirmed against NHANES itself (see its source note); no demo baseline uses it (n = 14).
 #
 # Every metric has a sources list. Each entry names the fields it covers as a LIST.
 # publisher: team = our own starting value, no external source yet (needs review before real use).
@@ -155,15 +156,15 @@ metrics:
         publisher: MedlinePlus (U.S. National Library of Medicine)
         title: Body temperature norms
         url: https://medlineplus.gov/ency/article/001982.htm
-        note: Normal 36.1-37.2 °C (97-99 °F); over 38 °C (100.4 °F) most often means fever. Seen in a search result; page itself not opened.
-        checked: 2026-11-14
+        note: Normal 36.1-37.2 °C (97-99 °F); over 38 °C (100.4 °F) most often means fever. Page text confirmed 2026-11-15 (source trace 8.3).
+        checked: 2026-11-15
         opened: false
       - fields: [warn_high]
         publisher: MedlinePlus (U.S. National Library of Medicine)
         title: Fever
         url: https://www.nlm.nih.gov/medlineplus/ency/article/003090.htm
-        note: An adult probably has a fever above 37.2-37.5 °C (99-99.5 °F) depending on time of day. Seen in a search result; page itself not opened.
-        checked: 2026-11-14
+        note: An adult probably has a fever when the oral temperature is above 37.2-37.5 °C (99-99.5 °F), depending on the time of day. Page text confirmed 2026-11-15 (source trace 8.3).
+        checked: 2026-11-15
         opened: false
       - fields: [crit_low]
         publisher: Cedars-Sinai
