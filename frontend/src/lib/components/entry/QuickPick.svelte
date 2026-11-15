@@ -19,7 +19,17 @@
 		labelledby: string;
 		invalid?: boolean;
 	};
-	let { metric, value = $bindable(), id, picks, step, format, mode, labelledby, invalid = false }: Props = $props();
+	let {
+		metric,
+		value = $bindable(),
+		id,
+		picks,
+		step,
+		format,
+		mode,
+		labelledby,
+		invalid = false
+	}: Props = $props();
 
 	const current = $derived(parseNumber(value));
 	let other = $state(false);
@@ -45,7 +55,12 @@
 			</button>
 		{/each}
 		{#if mode === 'other'}
-			<button type="button" aria-pressed={otherActive} class={chip(otherActive)} onclick={() => (other = true)}>
+			<button
+				type="button"
+				aria-pressed={otherActive}
+				class={chip(otherActive)}
+				onclick={() => (other = true)}
+			>
 				Other
 			</button>
 		{/if}
@@ -53,7 +68,12 @@
 
 	{#if mode === 'inline'}
 		<div class="flex items-center gap-4">
-			<button type="button" aria-label="Decrease {metric.name} by {step * 60} minutes" class={btn} onclick={() => ((value = stepped(metric, value, -1, step)), (other = false))}>
+			<button
+				type="button"
+				aria-label="Decrease {metric.name} by {step * 60} minutes"
+				class={btn}
+				onclick={() => ((value = stepped(metric, value, -1, step)), (other = false))}
+			>
 				<Icon name="minus" class="size-8" />
 			</button>
 			<p
@@ -64,14 +84,30 @@
 			>
 				{#if current == null}<span class="text-3xl">Not set</span>{:else}{format(current)}{/if}
 			</p>
-			<button type="button" aria-label="Increase {metric.name} by {step * 60} minutes" class={btn} onclick={() => ((value = stepped(metric, value, 1, step)), (other = false))}>
+			<button
+				type="button"
+				aria-label="Increase {metric.name} by {step * 60} minutes"
+				class={btn}
+				onclick={() => ((value = stepped(metric, value, 1, step)), (other = false))}
+			>
 				<Icon name="plus" class="size-8" />
 			</button>
 		</div>
 	{:else if otherActive}
-		<NumberStepper {metric} bind:value {id} {step} inputmode="numeric" {invalid} label="{metric.name}, other value" />
+		<NumberStepper
+			{metric}
+			bind:value
+			{id}
+			{step}
+			inputmode="numeric"
+			{invalid}
+			label="{metric.name}, other value"
+		/>
 	{:else}
-		<p class="font-display text-5xl font-semibold tabular-nums {current == null ? 'text-muted' : ''}" aria-live="polite">
+		<p
+			class="font-display text-5xl font-semibold tabular-nums {current == null ? 'text-muted' : ''}"
+			aria-live="polite"
+		>
 			{#if current == null}<span class="text-3xl">Not set</span>{:else}{format(current)}{/if}
 		</p>
 	{/if}

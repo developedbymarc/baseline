@@ -2,11 +2,21 @@
 	import * as echarts from 'echarts/core';
 	import { LineChart } from 'echarts/charts';
 	import {
-		AriaComponent, GridComponent, MarkAreaComponent, TooltipComponent
+		AriaComponent,
+		GridComponent,
+		MarkAreaComponent,
+		TooltipComponent
 	} from 'echarts/components';
 	import { CanvasRenderer } from 'echarts/renderers';
 
-	echarts.use([LineChart, GridComponent, MarkAreaComponent, TooltipComponent, AriaComponent, CanvasRenderer]);
+	echarts.use([
+		LineChart,
+		GridComponent,
+		MarkAreaComponent,
+		TooltipComponent,
+		AriaComponent,
+		CanvasRenderer
+	]);
 
 	export interface TrendPoint {
 		label: string;
@@ -42,7 +52,12 @@
 		const muted = token('--color-muted');
 
 		const band = (b: Band, fill: string, position: 'insideTopLeft' | 'insideBottomLeft') => [
-			{ yAxis: b.low, name: b.label, itemStyle: { color: fill }, label: { color: muted, position } },
+			{
+				yAxis: b.low,
+				name: b.label,
+				itemStyle: { color: fill },
+				label: { color: muted, position }
+			},
 			{ yAxis: b.high }
 		];
 		const values = [

@@ -31,7 +31,6 @@ export async function latestReadings(crewId: string | null | undefined, codes: s
 }
 
 export const levelsOf = (readings: Record<string, Reading | undefined>) =>
-	Object.fromEntries(Object.entries(readings).map(([c, r]) => [c, r ? shownLevel(r) : null])) as Record<
-		string,
-		Level | null
-	>;
+	Object.fromEntries(
+		Object.entries(readings).map(([c, r]) => [c, r ? shownLevel(r) : null])
+	) as Record<string, Level | null>;

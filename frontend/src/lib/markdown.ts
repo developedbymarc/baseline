@@ -18,7 +18,11 @@ export function renderMarkdown(source: string) {
 			const kind = /\d/.test(item[1]) ? 'ol' : 'ul';
 			if (list !== kind) {
 				close();
-				out.push(kind === 'ol' ? '<ol class="list-decimal space-y-2 pl-6">' : '<ul class="list-disc space-y-2 pl-6">');
+				out.push(
+					kind === 'ol'
+						? '<ol class="list-decimal space-y-2 pl-6">'
+						: '<ul class="list-disc space-y-2 pl-6">'
+				);
 				list = kind;
 			}
 			out.push(`<li>${inline(item[2])}</li>`);
@@ -26,7 +30,8 @@ export function renderMarkdown(source: string) {
 		}
 		close();
 		const heading = /^#{1,6}\s+(.*)$/.exec(line);
-		if (heading) out.push(`<h3 class="font-display text-xl font-semibold">${inline(heading[1])}</h3>`);
+		if (heading)
+			out.push(`<h3 class="font-display text-xl font-semibold">${inline(heading[1])}</h3>`);
 		else if (line) out.push(`<p>${inline(line)}</p>`);
 	}
 	close();

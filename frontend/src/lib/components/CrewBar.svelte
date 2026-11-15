@@ -19,19 +19,29 @@
 </script>
 
 <!-- Three groups that never break inside; on a narrow screen the right group moves to a second row. -->
-<header class="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 border-b border-line bg-surface px-6 py-3">
+<header
+	class="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 border-b border-line bg-surface px-6 py-3"
+>
 	<div class="flex items-center gap-3 whitespace-nowrap">
-		<a href="/crew" class="inline-flex min-h-11 items-center font-display text-xl font-bold tracking-widest">BASELINE</a>
+		<a
+			href="/crew"
+			class="inline-flex min-h-11 items-center font-display text-xl font-bold tracking-widest"
+			>BASELINE</a
+		>
 		<span class="rounded border border-line px-2 py-0.5 text-xs text-muted">SYNTHETIC DATA</span>
 	</div>
 
 	<p class="font-display text-xl font-medium whitespace-nowrap tabular-nums">
-		{#if m}MET {m.met}{#if missionDay(m.met)}<span class="text-muted">&nbsp;· Day {missionDay(m.met)}</span>{/if}{:else}MET –{/if}
+		{#if m}MET {m.met}{#if missionDay(m.met)}<span class="text-muted"
+					>&nbsp;· Day {missionDay(m.met)}</span
+				>{/if}{:else}MET –{/if}
 	</p>
 
 	<div class="flex items-center justify-end gap-3 text-sm whitespace-nowrap text-muted">
 		<span class={mission.offline || m?.linkUp === false ? 'text-watch' : ''}>{link}</span>
-		{#if m?.onboardFirst}<span class="rounded border border-line px-2 py-0.5 text-xs">on-board first</span>{/if}
+		{#if m?.onboardFirst}<span class="rounded border border-line px-2 py-0.5 text-xs"
+				>on-board first</span
+			>{/if}
 		{#if confirmSignOut}
 			<span class="text-ink">Sign out?</span>
 			<button

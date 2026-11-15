@@ -18,7 +18,9 @@
 	const protocol = $derived(flow.protocol);
 	const node = $derived(protocol?.treeYaml.find((n) => n.id === flow.nodeId));
 	const onboardFirst = $derived(mission.state?.onboardFirst ?? false);
-	const canNotify = $derived(!!node && (node.notifyGround || node.buildPacket) && node.type !== 'end');
+	const canNotify = $derived(
+		!!node && (node.notifyGround || node.buildPacket) && node.type !== 'end'
+	);
 
 	const sourceText = $derived(
 		(node?.src ?? [])
@@ -120,7 +122,10 @@
 	}
 </script>
 
-<svelte:head><title>{protocol ? `${protocol.title} · step ${flow.step}` : 'Protocol'} · BASELINE crew</title></svelte:head>
+<svelte:head
+	><title>{protocol ? `${protocol.title} · step ${flow.step}` : 'Protocol'} · BASELINE crew</title
+	></svelte:head
+>
 
 {#if protocol && node}
 	<div class="mx-auto flex min-h-[calc(100dvh-13rem)] max-w-4xl flex-col gap-6">
@@ -131,7 +136,9 @@
 
 		<div class="flex-1 space-y-6">
 			{#if node.review}
-				<p class="inline-flex items-center gap-2 rounded-lg border border-dashed border-watch px-3 py-1.5 text-sm text-watch">
+				<p
+					class="inline-flex items-center gap-2 rounded-lg border border-dashed border-watch px-3 py-1.5 text-sm text-watch"
+				>
 					<Icon name="triangle" class="size-4" /> Needs medical review
 				</p>
 			{/if}
@@ -155,7 +162,9 @@
 		{#if node.type === 'question'}
 			<div class="grid gap-4 sm:grid-cols-2">
 				{#each node.options ?? [] as option (option.label)}
-					<Button size="xl" disabled={busy} onclick={() => advance(option.label, option.next)}>{option.label}</Button>
+					<Button size="xl" disabled={busy} onclick={() => advance(option.label, option.next)}
+						>{option.label}</Button
+					>
 				{/each}
 			</div>
 		{:else}

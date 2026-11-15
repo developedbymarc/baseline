@@ -28,14 +28,18 @@
 	let retry = $state(0);
 
 	const metric = $derived(metrics.find((m) => m.code === code));
-	const sorted = $derived([...readings].sort((a, b) => Date.parse(a.recordedAt) - Date.parse(b.recordedAt)));
+	const sorted = $derived(
+		[...readings].sort((a, b) => Date.parse(a.recordedAt) - Date.parse(b.recordedAt))
+	);
 	const latest = $derived(sorted.at(-1));
 	const latestLevel = $derived(latest ? shownLevel(latest) : null);
 
 	const points = $derived<TrendPoint[]>(
 		// Mission time on the axis (and in the chart's aria description), never wall-clock dates.
 		sorted.map((r) => ({
-			label: mission.state ? `MET ${metShort(r.recordedAt, mission.state.launchDate)}` : (r.recordedMet ?? r.recordedAt),
+			label: mission.state
+				? `MET ${metShort(r.recordedAt, mission.state.launchDate)}`
+				: (r.recordedMet ?? r.recordedAt),
 			value: r.value,
 			level: shownLevel(r)
 		}))
@@ -103,7 +107,9 @@
 				type="button"
 				aria-pressed={m.code === code}
 				onclick={() => (code = m.code)}
-				class="min-h-14 rounded-full border px-5 text-lg {m.code === code ? 'border-action bg-raised font-semibold' : 'border-line bg-surface text-muted hover:text-ink'}"
+				class="min-h-14 rounded-full border px-5 text-lg {m.code === code
+					? 'border-action bg-raised font-semibold'
+					: 'border-line bg-surface text-muted hover:text-ink'}"
 			>
 				{m.name}
 			</button>
@@ -114,10 +120,13 @@
 		<!-- Value, status and range on one row, so Done stays above the fold on a tablet. -->
 		<header class="flex flex-wrap items-end justify-between gap-4">
 			<div>
-				<p class="text-base text-muted">{metric.name} · {RANGES.find((r) => r.days === days)?.label}</p>
+				<p class="text-base text-muted">
+					{metric.name} · {RANGES.find((r) => r.days === days)?.label}
+				</p>
 				<div class="flex items-center gap-4">
 					<p class="font-display text-6xl font-bold">
-						{latest ? fmt(latest.value) : '–'} <span class="text-3xl font-medium text-muted">{metric.unit}</span>
+						{latest ? fmt(latest.value) : '–'}
+						<span class="text-3xl font-medium text-muted">{metric.unit}</span>
 					</p>
 					{#if latestLevel}<StatusBadge level={latestLevel} />{/if}
 				</div>
@@ -129,7 +138,9 @@
 						type="button"
 						aria-pressed={r.days === days}
 						onclick={() => (days = r.days)}
-						class="min-h-14 rounded-xl border px-5 {r.days === days ? 'border-action bg-raised font-semibold' : 'border-line bg-surface text-muted'}"
+						class="min-h-14 rounded-xl border px-5 {r.days === days
+							? 'border-action bg-raised font-semibold'
+							: 'border-line bg-surface text-muted'}"
 					>
 						{r.label}
 					</button>
@@ -141,11 +152,15 @@
 			{#if points.length}
 				<TrendChart {points} unit={metric.unit} {normal} {baseline} />
 			{:else}
-				<p class="grid h-[clamp(200px,calc(100dvh-600px),384px)] place-items-center text-muted">{loading ? 'Loading readings…' : 'No readings in this range.'}</p>
+				<p class="grid h-[clamp(200px,calc(100dvh-600px),384px)] place-items-center text-muted">
+					{loading ? 'Loading readings…' : 'No readings in this range.'}
+				</p>
 			{/if}
 		</div>
 
-		<div class="flex items-center justify-between gap-4 rounded-2xl border border-line bg-surface p-4">
+		<div
+			class="flex items-center justify-between gap-4 rounded-2xl border border-line bg-surface p-4"
+		>
 			<p>{summary}</p>
 			<Button href="/crew" class="shrink-0">Done</Button>
 		</div>

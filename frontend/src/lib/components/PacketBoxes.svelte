@@ -26,8 +26,8 @@
 					{/each}
 				{:else if box.key === 'B'}
 					<p>
-						{d.crew.role}, {d.crew.age} y, {d.crew.sex}. Mission day {d.mission.missionDay}{d.mission
-							.inAdaptationWindow
+						{d.crew.role}, {d.crew.age} y, {d.crew.sex}. Mission day {d.mission.missionDay}{d
+							.mission.inAdaptationWindow
 							? ' (adaptation window)'
 							: ''}.
 					</p>

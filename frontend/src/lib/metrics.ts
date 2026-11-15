@@ -18,7 +18,10 @@ const LABELS: Record<string, string> = {
 };
 
 /** Tab icon per metric group (Icon.svelte names). */
-export const GROUP_ICON: Record<string, 'heart' | 'gauge' | 'thermometer' | 'droplet' | 'moon' | 'smile' | 'activity'> = {
+export const GROUP_ICON: Record<
+	string,
+	'heart' | 'gauge' | 'thermometer' | 'droplet' | 'moon' | 'smile' | 'activity'
+> = {
 	hr: 'heart',
 	bp: 'gauge',
 	temp: 'thermometer',
@@ -46,7 +49,8 @@ export const EXERCISE_STEP = 5;
 export const MOOD_WORDS = ['Very low', 'Low', 'Okay', 'Good', 'Very good'];
 
 /** Keeps stepper results inside the plausible range from config. Typed values are not clamped. */
-export const clamp = (n: number, m: Metric) => Math.min(m.plausibleMax, Math.max(m.plausibleMin, n));
+export const clamp = (n: number, m: Metric) =>
+	Math.min(m.plausibleMax, Math.max(m.plausibleMin, n));
 
 /** 7.25 -> "7 h 15 min". */
 export function formatHours(h: number) {
@@ -62,7 +66,12 @@ export const parseNumber = (text: string | undefined) => {
 };
 
 /** Next stepper value: from the start value when empty, else one step, rounded and clamped. */
-export function stepped(m: Metric, text: string | undefined, direction: 1 | -1, step = stepFor(m.code)) {
+export function stepped(
+	m: Metric,
+	text: string | undefined,
+	direction: 1 | -1,
+	step = stepFor(m.code)
+) {
 	const current = parseNumber(text);
 	const next = current == null ? startValue(m) : clamp(current + direction * step, m);
 	return String(Number(roundTo(next, step).toFixed(2)));

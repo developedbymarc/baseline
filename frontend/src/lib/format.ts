@@ -54,7 +54,8 @@ export const metFromDates = (at: string, launch: string) =>
 	formatMet((Date.parse(at) - Date.parse(launch)) / 1000);
 
 /** Short MET for chart axes: "3d 02:05" (pre-flight points are negative, e.g. "-2d 21:55"). */
-export const metShort = (at: string, launch: string) => metFromDates(at, launch).replace(/:\d\d$/, '');
+export const metShort = (at: string, launch: string) =>
+	metFromDates(at, launch).replace(/:\d\d$/, '');
 
 /** "27 min ago", measured against mission time, not the wall clock. */
 export function ageText(at: string, missionNow: string) {

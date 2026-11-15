@@ -74,7 +74,9 @@
 	<header class="flex items-baseline justify-between gap-4">
 		<h1 class="font-display text-3xl font-semibold">Handoff packet for ground</h1>
 		{#if packet}
-			<p class="text-sm text-muted">Built by the app from your data · written {packet.createdMet} MET</p>
+			<p class="text-sm text-muted">
+				Built by the app from your data · written {packet.createdMet} MET
+			</p>
 		{/if}
 	</header>
 
@@ -84,7 +86,10 @@
 		<!-- Sticky so the one primary action stays on screen, however long the packet is. -->
 		<div class="sticky bottom-0 z-10 -mx-6 border-t border-line bg-bg/95 px-6 py-4 backdrop-blur">
 			{#if sent}
-				<div role="status" class="flex items-center justify-between gap-4 rounded-2xl border border-ok bg-ok-surface p-4">
+				<div
+					role="status"
+					class="flex items-center justify-between gap-4 rounded-2xl border border-ok bg-ok-surface p-4"
+				>
 					<p class="text-lg font-semibold text-ok">{arrival}</p>
 					{#if continueProtocol}
 						<Button href="/crew/protocol" size="lg">Continue protocol</Button>
@@ -95,7 +100,9 @@
 			{:else}
 				<div class="grid items-end gap-4 md:grid-cols-[1fr_16rem]">
 					<div>
-						<label for="note" class="mb-2 block text-sm text-muted">Add a short note (optional)</label>
+						<label for="note" class="mb-2 block text-sm text-muted"
+							>Add a short note (optional)</label
+						>
 						<textarea
 							id="note"
 							rows="2"
@@ -110,7 +117,9 @@
 							{sending ? 'Sending…' : 'Send to ground'}
 						</Button>
 						<p class="text-xs text-muted">
-							{mission.state ? `Arrives about ${latencyText(mission.state.oneWayLatencySeconds)} after sending` : ''}
+							{mission.state
+								? `Arrives about ${latencyText(mission.state.oneWayLatencySeconds)} after sending`
+								: ''}
 						</p>
 					</div>
 				</div>
@@ -120,5 +129,8 @@
 		<p class="text-muted">Building packet…</p>
 	{/if}
 
-	{#if error}<ErrorBox message={error} onretry={packet ? (sent ? undefined : send) : loadDraft} />{/if}
+	{#if error}<ErrorBox
+			message={error}
+			onretry={packet ? (sent ? undefined : send) : loadDraft}
+		/>{/if}
 </div>

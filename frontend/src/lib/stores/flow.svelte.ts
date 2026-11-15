@@ -1,7 +1,5 @@
 import { browser } from '$app/env';
-import type {
-	MeasurementResponse, Metric, Packet, Protocol, ProtocolRun
-} from '#lib/api/types.ts';
+import type { MeasurementResponse, Metric, Packet, Protocol, ProtocolRun } from '#lib/api/types.ts';
 
 export interface Outcome {
 	metric: Metric;
@@ -68,7 +66,8 @@ class Flow {
 	 */
 	dismissAlert() {
 		const ids = [...this.#episode, this.alert?.alertId].filter((x): x is string => !!x);
-		if (ids.length && browser) sessionStorage.setItem(CLOSED, JSON.stringify([...new Set([...this.#closed(), ...ids])]));
+		if (ids.length && browser)
+			sessionStorage.setItem(CLOSED, JSON.stringify([...new Set([...this.#closed(), ...ids])]));
 		this.#episode = [];
 		this.alert = null;
 	}

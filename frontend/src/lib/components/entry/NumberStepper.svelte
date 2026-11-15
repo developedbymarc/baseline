@@ -35,12 +35,22 @@
 </script>
 
 {#snippet minus(cls: string)}
-	<button type="button" aria-label="Decrease {metric.name} by {step}" onclick={() => (value = stepped(metric, value, -1, step))} class="{btn} {cls}">
+	<button
+		type="button"
+		aria-label="Decrease {metric.name} by {step}"
+		onclick={() => (value = stepped(metric, value, -1, step))}
+		class="{btn} {cls}"
+	>
 		<Icon name="minus" class="size-8" />
 	</button>
 {/snippet}
 {#snippet plus(cls: string)}
-	<button type="button" aria-label="Increase {metric.name} by {step}" onclick={() => (value = stepped(metric, value, 1, step))} class="{btn} {cls}">
+	<button
+		type="button"
+		aria-label="Increase {metric.name} by {step}"
+		onclick={() => (value = stepped(metric, value, 1, step))}
+		class="{btn} {cls}"
+	>
 		<Icon name="plus" class="size-8" />
 	</button>
 {/snippet}

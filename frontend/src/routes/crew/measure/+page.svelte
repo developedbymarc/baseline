@@ -5,8 +5,17 @@
 	import { ApiException, api, errorMessage, type Metric } from '#lib/api/index.ts';
 	import { shownLevel } from '#lib/format.ts';
 	import {
-		EXERCISE_PICKS, EXERCISE_STEP, GROUP_ICON, MOOD_WORDS, SLEEP_PICKS,
-		entryKind, formatHours, groupMetrics, parseNumber, stepFor, type MetricGroup
+		EXERCISE_PICKS,
+		EXERCISE_STEP,
+		GROUP_ICON,
+		MOOD_WORDS,
+		SLEEP_PICKS,
+		entryKind,
+		formatHours,
+		groupMetrics,
+		parseNumber,
+		stepFor,
+		type MetricGroup
 	} from '#lib/metrics.ts';
 	import { renderMarkdown } from '#lib/markdown.ts';
 	import { flow, type Outcome } from '#lib/stores/flow.svelte.ts';
@@ -31,14 +40,21 @@
 	const group = $derived(groups.find((g) => g.id === groupId));
 	const isBp = $derived(group?.id === 'bp' && group.metrics.length === 2);
 	const isMoodGroup = $derived(!!group && group.metrics.every((m) => entryKind(m.code) === 'mood'));
-	const failedName = $derived(group && group.metrics.length > 1 ? group.metrics.find((m) => m.code === failedCode)?.name : null);
-	const ready = $derived(!!group && group.metrics.every((m) => parseNumber(values[m.code]) != null));
+	const failedName = $derived(
+		group && group.metrics.length > 1
+			? group.metrics.find((m) => m.code === failedCode)?.name
+			: null
+	);
+	const ready = $derived(
+		!!group && group.metrics.every((m) => parseNumber(values[m.code]) != null)
+	);
 
 	onMount(async () => {
 		try {
 			groups = groupMetrics(await api.metrics());
 			const wanted = page.url.searchParams.get('metric');
-			groupId = (groups.find((g) => g.metrics.some((m) => m.code === wanted)) ?? groups[0])?.id ?? '';
+			groupId =
+				(groups.find((g) => g.metrics.some((m) => m.code === wanted)) ?? groups[0])?.id ?? '';
 		} catch (e) {
 			error = errorMessage(e);
 		}
@@ -75,7 +91,12 @@
 				if (saved[metric.code]) continue;
 				failedCode = metric.code;
 				const value = parseNumber(values[metric.code])!;
-				const response = await api.submitMeasurement(session.crewId, metric.code, value, confirmImplausible);
+				const response = await api.submitMeasurement(
+					session.crewId,
+					metric.code,
+					value,
+					confirmImplausible
+				);
 				saved[metric.code] = { metric, value, response };
 			}
 			failedCode = null;
@@ -106,14 +127,18 @@
 
 	async function finish() {
 		const outcomes = group!.metrics.map((m) => saved[m.code]);
-		const red = outcomes.find(({ response }) => response.protocolId || shownLevel(response) === 'Red');
+		const red = outcomes.find(
+			({ response }) => response.protocolId || shownLevel(response) === 'Red'
+		);
 		if (red) {
 			const { metric, value, response } = red;
 			// Same wording as the stored alert: "Resting heart rate 130 bpm: Above the critical limit …"
 			const reading = `${metric.name} ${value}${metric.unit ? ` ${metric.unit}` : ''}`;
 			flow.openAlert({
 				alertId: response.alertId ?? null,
-				reason: response.status.reason ? `${reading}: ${response.status.reason}` : `${reading}: red reading.`,
+				reason: response.status.reason
+					? `${reading}: ${response.status.reason}`
+					: `${reading}: red reading.`,
 				protocolId: response.protocolId ?? null
 			});
 		}
@@ -127,14 +152,20 @@
 <div class="space-y-6">
 	<h1 class="sr-only">New measurement</h1>
 	<!-- Metric picker: large segmented tabs, icon + name. -->
-	<div class="grid grid-cols-7 gap-2 rounded-2xl border border-line bg-surface p-2" role="group" aria-label="Metric">
+	<div
+		class="grid grid-cols-7 gap-2 rounded-2xl border border-line bg-surface p-2"
+		role="group"
+		aria-label="Metric"
+	>
 		{#each groups as g (g.id)}
 			<button
 				type="button"
 				aria-pressed={g.id === groupId}
 				onclick={() => select(g.id)}
 				class="flex min-h-18 flex-col items-center justify-center gap-1 rounded-xl px-1 py-2 text-center text-base leading-tight transition active:bg-raised
-					{g.id === groupId ? 'bg-raised font-semibold text-ink shadow-[inset_0_-4px_0_var(--color-action)]' : 'text-muted hover:text-ink'}"
+					{g.id === groupId
+					? 'bg-raised font-semibold text-ink shadow-[inset_0_-4px_0_var(--color-action)]'
+					: 'text-muted hover:text-ink'}"
 			>
 				<Icon name={GROUP_ICON[g.id] ?? 'activity'} class="size-7" />
 				{g.label}
@@ -150,17 +181,40 @@
 					<!-- One composite control: SYS / DIA mmHg, sent as two POSTs. -->
 					<div>
 						<p id="bp-label" class="mb-2 text-base text-muted">
-							Blood pressure: <span class="font-display text-xl text-ink">SYS / DIA</span> {sys.unit}
+							Blood pressure: <span class="font-display text-xl text-ink">SYS / DIA</span>
+							{sys.unit}
 						</p>
-						<div class="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-start gap-3" role="group" aria-labelledby="bp-label">
+						<div
+							class="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-start gap-3"
+							role="group"
+							aria-labelledby="bp-label"
+						>
 							<div class="min-w-0 space-y-1">
-								<label for="v-{sys.code}" class="block text-sm font-semibold text-muted">SYS (top number)</label>
-								<NumberStepper metric={sys} bind:value={values[sys.code]} id="v-{sys.code}" layout="stack" inputmode="numeric" invalid={failedCode === sys.code && !!implausible} />
+								<label for="v-{sys.code}" class="block text-sm font-semibold text-muted"
+									>SYS (top number)</label
+								>
+								<NumberStepper
+									metric={sys}
+									bind:value={values[sys.code]}
+									id="v-{sys.code}"
+									layout="stack"
+									inputmode="numeric"
+									invalid={failedCode === sys.code && !!implausible}
+								/>
 							</div>
 							<span class="pt-10 font-display text-6xl text-muted" aria-hidden="true">/</span>
 							<div class="min-w-0 space-y-1">
-								<label for="v-{dia.code}" class="block text-sm font-semibold text-muted">DIA (bottom number)</label>
-								<NumberStepper metric={dia} bind:value={values[dia.code]} id="v-{dia.code}" layout="stack" inputmode="numeric" invalid={failedCode === dia.code && !!implausible} />
+								<label for="v-{dia.code}" class="block text-sm font-semibold text-muted"
+									>DIA (bottom number)</label
+								>
+								<NumberStepper
+									metric={dia}
+									bind:value={values[dia.code]}
+									id="v-{dia.code}"
+									layout="stack"
+									inputmode="numeric"
+									invalid={failedCode === dia.code && !!implausible}
+								/>
 							</div>
 						</div>
 					</div>
@@ -170,7 +224,9 @@
 						{@const invalid = failedCode === m.code && !!implausible}
 						<div>
 							{#if kind === 'mood'}
-								<p id="label-{m.code}" class="mb-2 text-base text-muted">{m.name}: tap one to save</p>
+								<p id="label-{m.code}" class="mb-2 text-base text-muted">
+									{m.name}: tap one to save
+								</p>
 								<div class="grid grid-cols-5 gap-3" role="group" aria-labelledby="label-{m.code}">
 									{#each MOOD_WORDS as word, i (word)}
 										{@const n = i + 1}
@@ -180,23 +236,47 @@
 											disabled={submitting}
 											onclick={() => pickMood(m, n)}
 											class="flex min-h-28 flex-col items-center justify-center gap-1 rounded-2xl border transition active:scale-[0.97] disabled:opacity-60
-												{values[m.code] === String(n) ? 'border-action bg-action text-on-action' : 'border-line bg-surface hover:bg-raised'}"
+												{values[m.code] === String(n)
+												? 'border-action bg-action text-on-action'
+												: 'border-line bg-surface hover:bg-raised'}"
 										>
 											<span class="font-display text-4xl font-semibold">{n}</span>
 											<span class="text-base">{word}</span>
 										</button>
 									{/each}
 								</div>
-								<p class="mt-2 text-sm text-muted">{submitting ? 'Saving…' : '1 = worst, 5 = best'}</p>
+								<p class="mt-2 text-sm text-muted">
+									{submitting ? 'Saving…' : '1 = worst, 5 = best'}
+								</p>
 							{:else if kind === 'slider'}
 								<label for="v-{m.code}" class="mb-2 block text-base text-muted">{m.name}</label>
 								<RangeSlider metric={m} bind:value={values[m.code]} id="v-{m.code}" {invalid} />
 							{:else if kind === 'sleep'}
 								<p id="label-{m.code}" class="mb-2 text-base text-muted">{m.name}</p>
-								<QuickPick metric={m} bind:value={values[m.code]} id="v-{m.code}" picks={SLEEP_PICKS} step={stepFor(m.code)} format={formatHours} mode="inline" labelledby="label-{m.code}" {invalid} />
+								<QuickPick
+									metric={m}
+									bind:value={values[m.code]}
+									id="v-{m.code}"
+									picks={SLEEP_PICKS}
+									step={stepFor(m.code)}
+									format={formatHours}
+									mode="inline"
+									labelledby="label-{m.code}"
+									{invalid}
+								/>
 							{:else if kind === 'exercise'}
 								<p id="label-{m.code}" class="mb-2 text-base text-muted">{m.name}</p>
-								<QuickPick metric={m} bind:value={values[m.code]} id="v-{m.code}" picks={EXERCISE_PICKS} step={EXERCISE_STEP} format={(v) => `${v} ${m.unit}`} mode="other" labelledby="label-{m.code}" {invalid} />
+								<QuickPick
+									metric={m}
+									bind:value={values[m.code]}
+									id="v-{m.code}"
+									picks={EXERCISE_PICKS}
+									step={EXERCISE_STEP}
+									format={(v) => `${v} ${m.unit}`}
+									mode="other"
+									labelledby="label-{m.code}"
+									{invalid}
+								/>
 							{:else}
 								{@const isTemp = m.code.startsWith('temp')}
 								<label for="v-{m.code}" class="block text-base text-muted">{m.name}</label>
@@ -227,12 +307,19 @@
 						<p class="mt-2">{implausible}</p>
 						<div class="mt-4 grid grid-cols-2 gap-3">
 							<Button onclick={retake}>Retake</Button>
-							<Button variant="watch" disabled={submitting} onclick={() => save(true)}>Save anyway</Button>
+							<Button variant="watch" disabled={submitting} onclick={() => save(true)}
+								>Save anyway</Button
+							>
 						</div>
 					</div>
 				{/if}
 
-				{#if error}<p role="alert" class="rounded-xl border border-act bg-act-surface p-4 text-act-ink">{error}</p>{/if}
+				{#if error}<p
+						role="alert"
+						class="rounded-xl border border-act bg-act-surface p-4 text-act-ink"
+					>
+						{error}
+					</p>{/if}
 
 				{#if !isMoodGroup}
 					<Button size="lg" disabled={!ready || submitting || !!implausible} onclick={() => save()}>

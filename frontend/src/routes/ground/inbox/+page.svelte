@@ -27,7 +27,9 @@
 	const launch = $derived(mission.state?.launchDate);
 
 	const delaySeconds = $derived(
-		selected?.deliveredAt ? (Date.parse(selected.deliveredAt) - Date.parse(selected.sentAt)) / 1000 : null
+		selected?.deliveredAt
+			? (Date.parse(selected.deliveredAt) - Date.parse(selected.sentAt)) / 1000
+			: null
 	);
 
 	onMount(() => {
@@ -35,7 +37,6 @@
 		const timer = setInterval(load, 5000);
 		return () => clearInterval(timer);
 	});
-
 </script>
 
 <svelte:head><title>Inbox · BASELINE ground</title></svelte:head>
@@ -48,24 +49,35 @@
 				type="button"
 				aria-current={m.id === selected?.id}
 				onclick={() => ((selectedId = m.id), (showText = false))}
-				class="w-full rounded-xl border p-3 text-left {m.id === selected?.id ? 'border-action bg-raised' : 'border-line bg-surface'}"
+				class="w-full rounded-xl border p-3 text-left {m.id === selected?.id
+					? 'border-action bg-raised'
+					: 'border-line bg-surface'}"
 			>
-				<span class="block font-semibold">{m.payload?.data ? 'Packet' : 'Alert'}{m.payload?.crewName ? ` · ${m.payload.crewName}` : ''}</span>
+				<span class="block font-semibold"
+					>{m.payload?.data ? 'Packet' : 'Alert'}{m.payload?.crewName
+						? ` · ${m.payload.crewName}`
+						: ''}</span
+				>
 				<span class="block text-xs text-muted">{m.ageOfData}</span>
 			</button>
 		{:else}
-			<p class="text-sm text-muted">{loaded ? 'Nothing has arrived. Ground cannot see messages still in flight.' : 'Loading…'}</p>
+			<p class="text-sm text-muted">
+				{loaded ? 'Nothing has arrived. Ground cannot see messages still in flight.' : 'Loading…'}
+			</p>
 		{/each}
 	</nav>
 
 	{#if selected}
 		<div class="space-y-4">
-			<header class="flex flex-wrap items-center gap-x-8 gap-y-2 rounded-2xl border border-act bg-act-surface px-5 py-4">
+			<header
+				class="flex flex-wrap items-center gap-x-8 gap-y-2 rounded-2xl border border-act bg-act-surface px-5 py-4"
+			>
 				<p class="font-display text-3xl font-bold">{selected.ageOfData}</p>
 				<p class="text-sm">
 					{#if launch}
-						sent {packet?.createdMet ?? metFromDates(selected.sentAt, launch)} MET
-						· arrived {selected.deliveredAt ? metFromDates(selected.deliveredAt, launch) : '–'} MET
+						sent {packet?.createdMet ?? metFromDates(selected.sentAt, launch)} MET · arrived {selected.deliveredAt
+							? metFromDates(selected.deliveredAt, launch)
+							: '–'} MET
 					{/if}
 					{#if delaySeconds != null}· link delay {latencyText(delaySeconds)}{/if}
 				</p>
@@ -76,8 +88,13 @@
 					<div class="space-y-4">
 						<PacketBoxes {packet} />
 
-						<section class="rounded-2xl border border-line bg-surface p-5" aria-labelledby="readings">
-							<h2 id="readings" class="mb-3 text-sm font-semibold text-muted">Readings, last 72 h</h2>
+						<section
+							class="rounded-2xl border border-line bg-surface p-5"
+							aria-labelledby="readings"
+						>
+							<h2 id="readings" class="mb-3 text-sm font-semibold text-muted">
+								Readings, last 72 h
+							</h2>
 							<table class="w-full text-left text-sm">
 								<tbody>
 									{#each packet.data.measurements72h as r (r.recordedMet + r.metricName)}
@@ -87,7 +104,8 @@
 											<td class="py-2">{r.metricName}</td>
 											<td class="py-2 text-right">{fmt(r.value)} {r.unit}</td>
 											<td class="py-2 text-right">
-												{#if r.recordedMet.startsWith('-')}<span class="text-muted">pre-flight</span>
+												{#if r.recordedMet.startsWith('-')}<span class="text-muted">pre-flight</span
+													>
 												{:else if level}<StatusBadge {level} />{/if}
 											</td>
 										</tr>
@@ -97,8 +115,13 @@
 						</section>
 					</div>
 
-					<aside class="space-y-4 self-start rounded-2xl border border-line bg-surface p-5" aria-labelledby="followups">
-						<h2 id="followups" class="font-display text-xl font-semibold">Follow-ups, prepared from data</h2>
+					<aside
+						class="space-y-4 self-start rounded-2xl border border-line bg-surface p-5"
+						aria-labelledby="followups"
+					>
+						<h2 id="followups" class="font-display text-xl font-semibold">
+							Follow-ups, prepared from data
+						</h2>
 						{#each packet.data.followUp as f (f.key)}
 							<div>
 								<p class="font-semibold">{f.question}</p>
@@ -113,10 +136,13 @@
 				</div>
 
 				{#if showText}
-					<pre class="overflow-x-auto rounded-2xl border border-line bg-surface p-5 text-sm whitespace-pre-wrap">{packet.text}</pre>
+					<pre
+						class="overflow-x-auto rounded-2xl border border-line bg-surface p-5 text-sm whitespace-pre-wrap">{packet.text}</pre>
 				{/if}
 			{:else}
-				<p class="rounded-2xl border border-line bg-surface p-5 text-lg">{selected.payload?.reason ?? 'Alert received.'}</p>
+				<p class="rounded-2xl border border-line bg-surface p-5 text-lg">
+					{selected.payload?.reason ?? 'Alert received.'}
+				</p>
 			{/if}
 		</div>
 	{/if}

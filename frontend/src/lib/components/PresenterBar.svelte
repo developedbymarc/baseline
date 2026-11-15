@@ -32,7 +32,11 @@
 	}
 
 	/** Runs an action, refreshes mission state and the open screen, then shows `message`. */
-	async function run(action: () => Promise<unknown>, message: (result: unknown) => string, after: () => void | Promise<void> = onrefresh) {
+	async function run(
+		action: () => Promise<unknown>,
+		message: (result: unknown) => string,
+		after: () => void | Promise<void> = onrefresh
+	) {
 		busy = true;
 		error = '';
 		notice = '';
@@ -79,9 +83,14 @@
 		>
 			{open ? '▾' : '▸'} PRESENTER
 		</button>
-		<span class="text-xs tracking-wider text-muted uppercase">demo controls, not part of the crew app</span>
+		<span class="text-xs tracking-wider text-muted uppercase"
+			>demo controls, not part of the crew app</span
+		>
 		<span class="ml-auto font-mono text-sm text-muted tabular-nums">
-			{#if m}MET {m.met} · ×{Math.round(m.clockRate)} {fastForward ? '· fast-forward' : '· real time'} · {m.linkUp ? 'link up' : 'link down'}{:else}no mission state{/if}
+			{#if m}MET {m.met} · ×{Math.round(m.clockRate)}
+				{fastForward ? '· fast-forward' : '· real time'} · {m.linkUp
+					? 'link up'
+					: 'link down'}{:else}no mission state{/if}
 		</span>
 	</div>
 
@@ -115,7 +124,8 @@
 						onclick={() =>
 							run(
 								() => api.demo.clock({ advanceSeconds: j.seconds }),
-								() => `Jumped ${j.words} ahead. ${met()} Readings stored for those days are now visible.`
+								() =>
+									`Jumped ${j.words} ahead. ${met()} Readings stored for those days are now visible.`
 							)}
 					>
 						{j.label}
@@ -169,13 +179,17 @@
 					}}
 				>
 					Link: {m?.linkUp === false ? 'down' : 'up'}
-					<span class={cap}>{m?.linkUp === false ? 'tap to restore' : 'tap to cut the radio link'}</span>
+					<span class={cap}
+						>{m?.linkUp === false ? 'tap to restore' : 'tap to cut the radio link'}</span
+					>
 				</button>
 
 				<span class="mx-1 w-px self-stretch bg-line" aria-hidden="true"></span>
 
 				{#if confirmReset}
-					<span class="self-center text-sm text-act-ink">Reload all demo data and set the clock back to day 0? Everything entered is lost.</span>
+					<span class="self-center text-sm text-act-ink"
+						>Reload all demo data and set the clock back to day 0? Everything entered is lost.</span
+					>
 					<button
 						type="button"
 						class="{btn} border-act text-act-ink"
@@ -183,14 +197,17 @@
 						onclick={() =>
 							run(
 								() => api.demo.reseed(),
-								() => `Demo reset: data reloaded, clock back to the start (${mission.state?.met ?? 'day 0'}), real time, link up.`,
+								() =>
+									`Demo reset: data reloaded, clock back to the start (${mission.state?.met ?? 'day 0'}), real time, link up.`,
 								onreset
 							)}
 					>
 						Yes, reset
 						<span class={cap}>cannot be undone</span>
 					</button>
-					<button type="button" class={btn} disabled={busy} onclick={() => (confirmReset = false)}>Cancel</button>
+					<button type="button" class={btn} disabled={busy} onclick={() => (confirmReset = false)}
+						>Cancel</button
+					>
 				{:else}
 					<button type="button" class={btn} disabled={busy} onclick={() => (confirmReset = true)}>
 						Reset demo…
@@ -203,7 +220,8 @@
 				{#if busy}<span class="text-muted">Working…</span>
 				{:else if error}<span class="text-act-ink">{error}</span>
 				{:else if notice}<span class="text-ink">{notice}</span>
-				{:else}<span class="text-muted">Each button says what it does. Results appear here.</span>{/if}
+				{:else}<span class="text-muted">Each button says what it does. Results appear here.</span
+					>{/if}
 			</p>
 		</div>
 	{/if}

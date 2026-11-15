@@ -63,7 +63,9 @@
 		<AlertBanner />
 		<OfflineBanner />
 		<CrewBar />
-		<main class="mx-auto w-full max-w-6xl flex-1 px-6 py-6">{#key version}{@render children()}{/key}</main>
+		<main class="mx-auto w-full max-w-6xl flex-1 px-6 py-6">
+			{#key version}{@render children()}{/key}
+		</main>
 		<footer class="border-t border-line px-6 py-3 text-xs text-muted">
 			Decision support, not diagnosis. All crew data is synthetic.
 		</footer>

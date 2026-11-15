@@ -42,7 +42,10 @@ export async function chestPainExample() {
 	const crewHeaders = as('crew', member.id);
 	await unwrap<SymptomResponse>(
 		sdk.crew.apiCrewCrewIdSymptomsPostRaw(
-			{ crewId: member.id, logSymptomRequest: { symptomCode: 'chest_pain', note: 'pressure behind sternum' } },
+			{
+				crewId: member.id,
+				logSymptomRequest: { symptomCode: 'chest_pain', note: 'pressure behind sternum' }
+			},
 			crewHeaders
 		)
 	);
@@ -50,7 +53,10 @@ export async function chestPainExample() {
 	for (const [metricCode, value] of EXAMPLE_READINGS) {
 		const r = await unwrap<MeasurementResponse>(
 			sdk.crew.apiCrewCrewIdMeasurementsPostRaw(
-				{ crewId: member.id, submitMeasurementRequest: { metricCode, value: value as never, confirmImplausible: false } },
+				{
+					crewId: member.id,
+					submitMeasurementRequest: { metricCode, value: value as never, confirmImplausible: false }
+				},
 				crewHeaders
 			)
 		);

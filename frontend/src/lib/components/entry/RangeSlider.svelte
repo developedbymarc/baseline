@@ -3,7 +3,13 @@
 	import { parseNumber, startValue, stepFor, stepped } from '#lib/metrics.ts';
 	import Icon from '../Icon.svelte';
 
-	type Props = { metric: Metric; value?: string; id: string; invalid?: boolean; describedby?: string };
+	type Props = {
+		metric: Metric;
+		value?: string;
+		id: string;
+		invalid?: boolean;
+		describedby?: string;
+	};
 	let { metric, value = $bindable(), id, invalid = false, describedby }: Props = $props();
 
 	const step = $derived(stepFor(metric.code));
@@ -27,11 +33,23 @@
 </script>
 
 <div class="space-y-4">
-	<p class="font-display text-7xl leading-none font-semibold tabular-nums {current == null ? 'text-muted' : ''}" aria-hidden="true">
-		{#if current == null}<span class="text-3xl font-medium">Not set</span>{:else}{current}<span class="ml-3 text-2xl font-medium text-muted">{metric.unit}</span>{/if}
+	<p
+		class="font-display text-7xl leading-none font-semibold tabular-nums {current == null
+			? 'text-muted'
+			: ''}"
+		aria-hidden="true"
+	>
+		{#if current == null}<span class="text-3xl font-medium">Not set</span>{:else}{current}<span
+				class="ml-3 text-2xl font-medium text-muted">{metric.unit}</span
+			>{/if}
 	</p>
 	<div class="flex items-center gap-4">
-		<button type="button" aria-label="Decrease {metric.name} by {step}" class={btn} onclick={() => (value = stepped(metric, value, -1))}>
+		<button
+			type="button"
+			aria-label="Decrease {metric.name} by {step}"
+			class={btn}
+			onclick={() => (value = stepped(metric, value, -1))}
+		>
 			<Icon name="minus" class="size-8" />
 		</button>
 		<div class="min-w-0 flex-1">
@@ -54,7 +72,12 @@
 				{/each}
 			</div>
 		</div>
-		<button type="button" aria-label="Increase {metric.name} by {step}" class={btn} onclick={() => (value = stepped(metric, value, 1))}>
+		<button
+			type="button"
+			aria-label="Increase {metric.name} by {step}"
+			class={btn}
+			onclick={() => (value = stepped(metric, value, 1))}
+		>
 			<Icon name="plus" class="size-8" />
 		</button>
 	</div>
