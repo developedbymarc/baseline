@@ -25,10 +25,23 @@
 
 @layer base {
 	body {
-		@apply bg-bg font-sans text-ink antialiased;
+		/* Tabular figures everywhere: values, MET and ages do not shift as digits change. */
+		@apply bg-bg font-sans text-ink tabular-nums antialiased;
 	}
 	:focus-visible {
 		@apply outline-2 outline-offset-2 outline-action;
+	}
+}
+
+/* Respect the system setting: no transitions or animations. */
+@media (prefers-reduced-motion: reduce) {
+	*,
+	*::before,
+	*::after {
+		transition-duration: 0.01ms !important;
+		animation-duration: 0.01ms !important;
+		animation-iteration-count: 1 !important;
+		scroll-behavior: auto !important;
 	}
 }
 

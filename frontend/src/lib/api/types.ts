@@ -22,6 +22,8 @@ export interface Mission {
 	launchDate: string;
 	missionNow: string;
 	met: string;
+	clockRate: number;
+	clockPaused: boolean;
 	linkUp: boolean;
 	oneWayLatencySeconds: number;
 	onboardFirst: boolean;
@@ -45,6 +47,15 @@ export interface Metric {
 	normalHigh: number | null;
 	zWarn: number | null;
 	hasStatus: boolean;
+	/** Which limits each source backs, e.g. fields ["warn_high", "crit_high"]. Publisher "team" = team value. */
+	sources?: MetricSource[];
+}
+
+export interface MetricSource {
+	fields: string[];
+	publisher: string;
+	title: string;
+	url?: string | null;
 }
 
 export interface HowTo {
@@ -68,9 +79,12 @@ export interface ContextInfo {
 	factors: ContextFactor[];
 }
 
-/** Assumed: `status` of a measurement result. */
+/** `status` of a measurement result. */
 export interface StatusInfo {
 	level: RawLevel;
+	/** Level from the absolute limits alone; `direction` is "high", "low" or null when green. */
+	absoluteLevel?: RawLevel | null;
+	direction?: string | null;
 	reason?: string | null;
 	rule?: string | null;
 	baselineN?: number | null;
@@ -97,21 +111,20 @@ export interface Reading {
 	context?: ContextInfo | null;
 }
 
-/** Assumed: response of POST /crew/{id}/measurements. */
+/** Response of POST /crew/{id}/measurements. `alertId` is set for every yellow or red in-flight reading. */
 export interface MeasurementResponse {
 	status: StatusInfo;
 	context?: ContextInfo | null;
-	alert?: Alert | null;
+	alertId?: string | null;
 	protocolId?: string | null;
 	packetDraft?: Packet | null;
 }
 
-/** Assumed: response of POST /crew/{id}/symptoms. */
+/** Response of POST /crew/{id}/symptoms. It carries no reason text. */
 export interface SymptomResponse {
-	alertId?: string | null;
-	alert?: Alert | null;
-	reason?: string | null;
-	protocolId?: string | null;
+	symptomLogId: string;
+	alertId: string | null;
+	protocolId: string | null;
 }
 
 export interface Baseline {
@@ -125,6 +138,9 @@ export interface Reminder {
 	id?: string;
 	metricCode: string;
 	dueMet?: string | number | null;
+	/** Due time reached. */
+	due?: boolean;
+	/** Still pending after its due time. */
 	overdue: boolean;
 }
 
@@ -210,16 +226,19 @@ export interface LinkMessage {
 	payload: (Partial<Packet> & { reason?: string }) | null;
 }
 
-/** Assumed: one row of GET /ground/overview. */
-export interface OverviewCell extends Reading {
-	downgraded?: boolean;
-	originalLevel?: RawLevel;
+/** One cell of GET /ground/overview. `value`, `recordedAt` and `status` are null until a reading is delivered. */
+export interface OverviewCell {
+	metricCode: string;
+	value: number | null;
+	recordedAt: string | null;
+	status: StatusInfo | null;
+	context?: ContextInfo | null;
 }
 export interface OverviewRow {
 	crewMemberId: string;
 	name: string;
 	role: string;
-	metrics: Record<string, OverviewCell | null>;
+	cells: OverviewCell[];
 }
 
 export interface ReportPeriod {

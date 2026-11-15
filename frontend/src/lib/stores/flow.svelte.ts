@@ -1,7 +1,5 @@
-import { browser } from '$app/environment';
-import type {
-	MeasurementResponse, Metric, Packet, Protocol, ProtocolRun
-} from '#lib/api/types.ts';
+import { browser } from '$app/env';
+import type { MeasurementResponse, Metric, Packet, Protocol, ProtocolRun } from '#lib/api/types.ts';
 
 export interface Outcome {
 	metric: Metric;
@@ -29,6 +27,8 @@ class Flow {
 	/** 1-based count of protocol steps shown, for the header. */
 	step = $state(1);
 	packet = $state<Packet | null>(null);
+	/** Countdown of a timed protocol step, in mission time. Kept here so leaving to measure does not restart it. */
+	timer = $state<{ runId: string; step: number; endsAt: number } | null>(null);
 
 	#closed(): string[] {
 		if (!browser) return [];
@@ -43,21 +43,54 @@ class Flow {
 		return this.#closed().includes(alertId);
 	}
 
+	/** Every alert raised during the current red episode (symptom + red readings), closed together. */
+	#episode: string[] = [];
+
+	/**
+	 * Opens the banner, or updates it with a newer red alert. The protocol id and alert id of an
+	 * episode already open are kept when the new alert has none.
+	 */
 	openAlert(alert: OpenAlert) {
 		if (alert.alertId && this.isClosed(alert.alertId)) return;
-		this.alert = alert;
+		if (alert.alertId && !this.#episode.includes(alert.alertId)) this.#episode.push(alert.alertId);
+		this.alert = {
+			alertId: alert.alertId ?? this.alert?.alertId ?? null,
+			reason: alert.reason,
+			protocolId: alert.protocolId ?? this.alert?.protocolId ?? null
+		};
 	}
 
-	/** Called when the protocol run ends or the packet is sent. */
-	closeAlert() {
-		const id = this.alert?.alertId;
-		if (id && browser) sessionStorage.setItem(CLOSED, JSON.stringify([...this.#closed(), id]));
+	/**
+	 * Takes the banner down (packet sent) but keeps a protocol run going. Every alert of the
+	 * episode is marked closed, so none reopens on reload.
+	 */
+	dismissAlert() {
+		const ids = [...this.#episode, this.alert?.alertId].filter((x): x is string => !!x);
+		if (ids.length && browser)
+			sessionStorage.setItem(CLOSED, JSON.stringify([...new Set([...this.#closed(), ...ids])]));
+		this.#episode = [];
 		this.alert = null;
+	}
+
+	/** Presenter "Reset demo": the database is reloaded, so every id this store holds is gone. */
+	resetAll() {
+		this.#episode = [];
+		this.alert = null;
+		this.outcomes = [];
+		this.returnTo = null;
+		this.closeAlert();
+		if (browser) sessionStorage.removeItem(CLOSED);
+	}
+
+	/** Called when the protocol run ends (or a packet is sent with no run): banner down and run state cleared. */
+	closeAlert() {
+		this.dismissAlert();
 		this.run = null;
 		this.protocol = null;
 		this.nodeId = null;
 		this.step = 1;
 		this.packet = null;
+		this.timer = null;
 	}
 }
 

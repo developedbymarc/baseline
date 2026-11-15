@@ -6,6 +6,7 @@
 	import { mission } from '#lib/stores/mission.svelte.ts';
 	import { session } from '#lib/stores/session.svelte.ts';
 	import Button from '#lib/components/Button.svelte';
+	import ErrorBox from '#lib/components/ErrorBox.svelte';
 	import Icon from '#lib/components/Icon.svelte';
 
 	const DEFAULT_PROTOCOL = 'chest_pain';
@@ -13,12 +14,13 @@
 	let metrics = $state<Metric[]>([]);
 	let error = $state('');
 	let busy = $state(false);
-	let secondsLeft = $state(0);
 
 	const protocol = $derived(flow.protocol);
 	const node = $derived(protocol?.treeYaml.find((n) => n.id === flow.nodeId));
 	const onboardFirst = $derived(mission.state?.onboardFirst ?? false);
-	const canNotify = $derived(!!node && (node.notifyGround || node.buildPacket) && node.type !== 'end');
+	const canNotify = $derived(
+		!!node && (node.notifyGround || node.buildPacket) && node.type !== 'end'
+	);
 
 	const sourceText = $derived(
 		(node?.src ?? [])
@@ -48,16 +50,33 @@
 		}
 	});
 
-	// A timed step keeps Next disabled until the countdown ends.
+	// A timed step keeps Next disabled until the countdown ends. The countdown runs on mission time
+	// (so fast-forward shortens it) and lives in `flow`, so measuring in between does not restart it.
+	// It is keyed by the step count, so coming back to the same node later starts a fresh one.
+	let tick = $state(0);
+	$effect(() => {
+		const t = setInterval(() => tick++, 500);
+		return () => clearInterval(t);
+	});
+
 	$effect(() => {
 		const seconds = Number(node?.timerS ?? 0);
-		secondsLeft = seconds;
-		if (!seconds) return;
-		const t = setInterval(() => {
-			secondsLeft = Math.max(0, secondsLeft - 1);
-			if (!secondsLeft) clearInterval(t);
-		}, 1000);
-		return () => clearInterval(t);
+		const run = flow.run;
+		if (!seconds || !run) return;
+		if (flow.timer?.runId === run.id && flow.timer.step === flow.step) return;
+		void tick; // read so the effect retries until the first mission poll has arrived
+		const now = mission.nowMs();
+		if (now != null) flow.timer = { runId: run.id, step: flow.step, endsAt: now + seconds * 1000 };
+	});
+
+	const secondsLeft = $derived.by(() => {
+		void tick; // re-evaluate twice a second
+		const seconds = Number(node?.timerS ?? 0);
+		if (!seconds) return 0;
+		const t = flow.timer;
+		const now = mission.nowMs();
+		if (!t || t.runId !== flow.run?.id || t.step !== flow.step || now == null) return seconds;
+		return Math.max(0, Math.ceil((t.endsAt - now) / 1000));
 	});
 
 	const clock = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
@@ -103,16 +122,23 @@
 	}
 </script>
 
+<svelte:head
+	><title>{protocol ? `${protocol.title} · step ${flow.step}` : 'Protocol'} · BASELINE crew</title
+	></svelte:head
+>
+
 {#if protocol && node}
 	<div class="mx-auto flex min-h-[calc(100dvh-13rem)] max-w-4xl flex-col gap-6">
 		<div class="flex justify-between text-sm text-muted">
-			<p>{protocol.title} · v{protocol.version} · step {flow.step}</p>
+			<h1>{protocol.title} · v{protocol.version} · step {flow.step}</h1>
 			<p>Every step is logged with its time</p>
 		</div>
 
 		<div class="flex-1 space-y-6">
 			{#if node.review}
-				<p class="inline-flex items-center gap-2 rounded-lg border border-dashed border-watch px-3 py-1.5 text-sm text-watch">
+				<p
+					class="inline-flex items-center gap-2 rounded-lg border border-dashed border-watch px-3 py-1.5 text-sm text-watch"
+				>
 					<Icon name="triangle" class="size-4" /> Needs medical review
 				</p>
 			{/if}
@@ -130,12 +156,15 @@
 			{/if}
 		</div>
 
-		{#if error}<p role="alert" class="rounded-xl border border-act bg-act-surface p-4 text-act-ink">{error}</p>{/if}
+		{#if error}<ErrorBox message={error} />{/if}
+		<p class="min-h-5 text-sm text-muted" aria-live="polite">{busy ? 'Logging this step…' : ''}</p>
 
 		{#if node.type === 'question'}
 			<div class="grid gap-4 sm:grid-cols-2">
 				{#each node.options ?? [] as option (option.label)}
-					<Button size="xl" disabled={busy} onclick={() => advance(option.label, option.next)}>{option.label}</Button>
+					<Button size="xl" disabled={busy} onclick={() => advance(option.label, option.next)}
+						>{option.label}</Button
+					>
 				{/each}
 			</div>
 		{:else}
@@ -168,7 +197,7 @@
 		{#if protocol.disclaimer}<p class="text-xs text-muted">{protocol.disclaimer}</p>{/if}
 	</div>
 {:else if error}
-	<p role="alert" class="rounded-xl border border-act bg-act-surface p-4 text-act-ink">{error}</p>
+	<ErrorBox message={error} />
 {:else}
 	<p class="text-muted">Loading protocol…</p>
 {/if}

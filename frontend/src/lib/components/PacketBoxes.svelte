@@ -15,7 +15,7 @@
 <div class="grid gap-4 md:grid-cols-2">
 	{#each boxes as box (box.key)}
 		<section class="min-h-44 rounded-2xl border border-line bg-surface p-5">
-			<h3 class="text-sm font-semibold {box.tone}">{box.title}</h3>
+			<h2 class="text-sm font-semibold {box.tone}">{box.title}</h2>
 			<div class="mt-3 space-y-2 text-base leading-relaxed">
 				{#if box.key === 'S'}
 					<p>{d.trigger.summary}</p>
@@ -26,8 +26,8 @@
 					{/each}
 				{:else if box.key === 'B'}
 					<p>
-						{d.crew.role}, {d.crew.age} y, {d.crew.sex}. Mission day {d.mission.missionDay}{d.mission
-							.inAdaptationWindow
+						{d.crew.role}, {d.crew.age} y, {d.crew.sex}. Mission day {d.mission.missionDay}{d
+							.mission.inAdaptationWindow
 							? ' (adaptation window)'
 							: ''}.
 					</p>

@@ -1,7 +1,21 @@
 import { sdk, unwrap } from './client.ts';
 import type {
-	Alert, Baseline, CrewMember, HowTo, LinkMessage, MeasurementResponse, Metric, Mission,
-	OverviewRow, Packet, Protocol, ProtocolRun, Reading, Reminder, Report, ReportPeriod,
+	Alert,
+	Baseline,
+	CrewMember,
+	HowTo,
+	LinkMessage,
+	MeasurementResponse,
+	Metric,
+	Mission,
+	OverviewRow,
+	Packet,
+	Protocol,
+	ProtocolRun,
+	Reading,
+	Reminder,
+	Report,
+	ReportPeriod,
 	SymptomResponse
 } from './types.ts';
 
@@ -26,9 +40,7 @@ export const api = {
 
 	crew: () => unwrap<CrewMember[]>(sdk.crew.apiCrewGetRaw()),
 	reminders: (id?: string | null) =>
-		unwrap<Reminder[]>(
-			sdk.crew.apiCrewCrewIdRemindersGetRaw({ crewId: need(id), openOnly: true })
-		),
+		unwrap<Reminder[]>(sdk.crew.apiCrewCrewIdRemindersGetRaw({ crewId: need(id), openOnly: true })),
 	measurements: (id: string | null | undefined, metric: string, days?: number) =>
 		unwrap<Reading[]>(
 			sdk.crew.apiCrewCrewIdMeasurementsGetRaw({ crewId: need(id), metric, days: days as never })
@@ -113,5 +125,28 @@ export const api = {
 			})
 		),
 	crewReport: (window: string, period: number) =>
-		unwrap<Report>(sdk.reports.apiReportsCrewWindowPeriodGetRaw({ window, period: String(period) }))
+		unwrap<Report>(
+			sdk.reports.apiReportsCrewWindowPeriodGetRaw({ window, period: String(period) })
+		),
+
+	/** Presenter controls (open endpoints, no role needed). Each returns the new mission state. */
+	demo: {
+		clock: (opts: { fastForward?: boolean; advanceSeconds?: number }) =>
+			unwrap<Mission>(
+				sdk.demo.apiDemoClockPostRaw({
+					clockRequest: {
+						rate: null,
+						paused: null,
+						fastForward: opts.fastForward ?? null,
+						advanceSeconds: (opts.advanceSeconds ?? null) as never
+					}
+				})
+			),
+		link: (up: boolean) =>
+			unwrap<Mission>(
+				sdk.demo.apiDemoLinkPostRaw({ linkRequest: { up, oneWayLatencySeconds: null } })
+			),
+		scene5: () => unwrap<Mission>(sdk.demo.apiDemoScene5PostRaw()),
+		reseed: () => unwrap<unknown>(sdk.demo.apiDemoReseedPostRaw())
+	}
 };

@@ -2,11 +2,21 @@
 	import * as echarts from 'echarts/core';
 	import { LineChart } from 'echarts/charts';
 	import {
-		AriaComponent, GridComponent, MarkAreaComponent, TooltipComponent
+		AriaComponent,
+		GridComponent,
+		MarkAreaComponent,
+		TooltipComponent
 	} from 'echarts/components';
 	import { CanvasRenderer } from 'echarts/renderers';
 
-	echarts.use([LineChart, GridComponent, MarkAreaComponent, TooltipComponent, AriaComponent, CanvasRenderer]);
+	echarts.use([
+		LineChart,
+		GridComponent,
+		MarkAreaComponent,
+		TooltipComponent,
+		AriaComponent,
+		CanvasRenderer
+	]);
 
 	export interface TrendPoint {
 		label: string;
@@ -42,7 +52,12 @@
 		const muted = token('--color-muted');
 
 		const band = (b: Band, fill: string, position: 'insideTopLeft' | 'insideBottomLeft') => [
-			{ yAxis: b.low, name: b.label, itemStyle: { color: fill }, label: { color: muted, position } },
+			{
+				yAxis: b.low,
+				name: b.label,
+				itemStyle: { color: fill },
+				label: { color: muted, position }
+			},
 			{ yAxis: b.high }
 		];
 		const values = [
@@ -99,4 +114,5 @@
 	});
 </script>
 
-<div bind:this={el} class="h-96 w-full"></div>
+<!-- Height follows the viewport (200-384 px) so the page fits a landscape tablet. -->
+<div bind:this={el} class="h-[clamp(200px,calc(100dvh-600px),384px)] w-full"></div>

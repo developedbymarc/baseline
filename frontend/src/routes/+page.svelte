@@ -58,7 +58,7 @@
 				>
 					<option value="" disabled>Select a crew member…</option>
 					{#each crew as member (member.id)}
-						<option value={member.id}>{member.name} ({member.id}) · {member.role}</option>
+						<option value={member.id}>{member.name} · {member.role}</option>
 					{/each}
 				</select>
 			</label>
@@ -73,9 +73,13 @@
 			<Button size="lg" class="w-full" disabled={loading} onclick={chooseCrew}>
 				{loading ? 'Loading crew…' : 'Crew member'}
 			</Button>
-			<Button variant="secondary" size="lg" class="w-full" onclick={chooseGround}>Ground control</Button>
+			<Button variant="secondary" size="lg" class="w-full" onclick={chooseGround}
+				>Ground control</Button
+			>
 		</section>
 	{/if}
 
-	{#if error}<p role="alert" class="rounded-xl border border-act bg-act-surface p-4 text-act-ink">{error}</p>{/if}
+	{#if error}<p role="alert" class="rounded-xl border border-act bg-act-surface p-4 text-act-ink">
+			{error}
+		</p>{/if}
 </main>
