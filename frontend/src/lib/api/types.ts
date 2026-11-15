@@ -210,16 +210,19 @@ export interface LinkMessage {
 	payload: (Partial<Packet> & { reason?: string }) | null;
 }
 
-/** Assumed: one row of GET /ground/overview. */
-export interface OverviewCell extends Reading {
-	downgraded?: boolean;
-	originalLevel?: RawLevel;
+/** One cell of GET /ground/overview. `value`, `recordedAt` and `status` are null until a reading is delivered. */
+export interface OverviewCell {
+	metricCode: string;
+	value: number | null;
+	recordedAt: string | null;
+	status: StatusInfo | null;
+	context?: ContextInfo | null;
 }
 export interface OverviewRow {
 	crewMemberId: string;
 	name: string;
 	role: string;
-	metrics: Record<string, OverviewCell | null>;
+	cells: OverviewCell[];
 }
 
 export interface ReportPeriod {

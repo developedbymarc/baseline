@@ -13,7 +13,9 @@
 	let error = $state('');
 
 	const columns = $derived(metrics.some((m) => m.hasStatus) ? metrics.filter((m) => m.hasStatus) : metrics);
-	const lowered = (c: OverviewCell) => !!(c.downgraded ?? c.context?.downgraded);
+	const lowered = (c: OverviewCell) => !!c.context?.downgraded;
+	const cellFor = (row: OverviewRow, code: string) =>
+		row.cells?.find((c) => c.metricCode === code && c.value != null && c.recordedAt) ?? null;
 
 	async function refresh() {
 		try {
@@ -52,7 +54,7 @@
 								{row.name}<span class="block text-sm font-normal text-muted">{row.role}</span>
 							</th>
 							{#each columns as m (m.code)}
-								{@const cell = row.metrics?.[m.code]}
+								{@const cell = cellFor(row, m.code)}
 								{@const level = cell ? shownLevel(cell) : null}
 								<td class="p-0">
 									{#if cell && level}
@@ -63,8 +65,8 @@
 											<StatusBadge {level} asterisk={lowered(cell)} />
 											<span class="ml-1 font-display text-lg font-semibold">{fmt(cell.value)}</span>
 											<span class="block text-xs text-muted">
-												{mission.state ? ageText(cell.recordedAt, mission.state.missionNow) : ''}
-												{#if lowered(cell)}· lowered from {LEVEL_WORD[toLevel(cell.originalLevel ?? cell.context?.originalLevel) ?? 'Yellow']}{/if}
+												{mission.state && cell.recordedAt ? ageText(cell.recordedAt, mission.state.missionNow) : ''}
+												{#if lowered(cell)}· lowered from {LEVEL_WORD[toLevel(cell.context?.originalLevel) ?? 'Yellow']}{/if}
 											</span>
 										</a>
 									{:else}
@@ -95,7 +97,7 @@
 			>
 				<p class="font-semibold">{kind(m)}{m.payload?.crewName ? ` · ${m.payload.crewName}` : ''}</p>
 				<p class="mt-1 text-sm">{m.payload?.data?.trigger.summary ?? m.payload?.reason ?? ''}</p>
-				<p class="mt-1 text-xs text-muted">Written {m.ageOfData} ago</p>
+				<p class="mt-1 text-xs text-muted">{m.ageOfData}</p>
 			</a>
 		{:else}
 			<p class="text-sm text-muted">Nothing has arrived. Ground cannot see messages still in flight.</p>

@@ -42,7 +42,7 @@
 				class="w-full rounded-xl border p-3 text-left {m.id === selected?.id ? 'border-action bg-raised' : 'border-line bg-surface'}"
 			>
 				<span class="block font-semibold">{m.payload?.data ? 'Packet' : 'Alert'}{m.payload?.crewName ? ` · ${m.payload.crewName}` : ''}</span>
-				<span class="block text-xs text-muted">Written {m.ageOfData} ago</span>
+				<span class="block text-xs text-muted">{m.ageOfData}</span>
 			</button>
 		{:else}
 			<p class="text-sm text-muted">Nothing has arrived.</p>
@@ -52,7 +52,7 @@
 	{#if selected}
 		<div class="space-y-4">
 			<header class="flex flex-wrap items-center gap-x-8 gap-y-2 rounded-2xl border border-act bg-act-surface px-5 py-4">
-				<p class="font-display text-3xl font-bold">Written {selected.ageOfData} ago</p>
+				<p class="font-display text-3xl font-bold">{selected.ageOfData}</p>
 				<p class="text-sm">
 					{#if launch}
 						sent {packet?.createdMet ?? metFromDates(selected.sentAt, launch)} MET
