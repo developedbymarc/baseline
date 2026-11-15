@@ -4,6 +4,7 @@
 	import { LEVEL_WORD, fmt, ruleLabel, shownLevel, toLevel, worst } from '#lib/format.ts';
 	import { statusSourceLines } from '#lib/metrics.ts';
 	import { flow } from '#lib/stores/flow.svelte.ts';
+	import { mission } from '#lib/stores/mission.svelte.ts';
 	import { session } from '#lib/stores/session.svelte.ts';
 	import { HEART_CODES, LUNG_CODES, chestLevels, latestReadings, levelsOf, type ChestLevels } from '#lib/chest.ts';
 	import ChestFigure from '#lib/components/ChestFigure.svelte';
@@ -12,8 +13,16 @@
 	import StatusBadge from '#lib/components/StatusBadge.svelte';
 
 	let index = $state(0);
-	let retakeIn = $state<number | null>(null);
+	/** "Retake in 10 min" ends at this mission time (ms); fast-forward shortens it. */
+	let retakeAt = $state<number | null>(null);
+	let tick = $state(0);
 	let timer: ReturnType<typeof setInterval> | undefined;
+	const retakeIn = $derived.by(() => {
+		void tick; // re-evaluated by the 1 s timer below
+		const now = mission.nowMs();
+		if (retakeAt == null || now == null) return null;
+		return Math.max(0, Math.ceil((retakeAt - now) / 1000));
+	});
 
 	const current = $derived(flow.outcomes[index]);
 	const response = $derived(current?.response);
@@ -68,10 +77,13 @@
 	onDestroy(() => clearInterval(timer));
 
 	function startRetakeTimer() {
-		retakeIn = 600;
+		const now = mission.nowMs();
+		if (now == null) return;
+		retakeAt = now + 600_000;
+		clearInterval(timer);
 		timer = setInterval(() => {
-			retakeIn = Math.max(0, (retakeIn ?? 0) - 1);
-			if (!retakeIn) clearInterval(timer);
+			tick++;
+			if (retakeIn === 0) clearInterval(timer);
 		}, 1000);
 	}
 
