@@ -4,7 +4,6 @@
 	"private": true,
 	"type": "module",
 	"imports": {
-		"#lib": "./src/lib/index.js",
 		"#lib/*": "./src/lib/*"
 	},
 	"scripts": {
@@ -23,6 +22,7 @@
 		"@sveltejs/adapter-node": "^6.0.0",
 		"@sveltejs/kit": "^3.0.0",
 		"@sveltejs/vite-plugin-svelte": "^7.2.0",
+		"@tailwindcss/vite": "^4.1.0",
 		"@types/node": "^26",
 		"eslint": "^10.4.1",
 		"eslint-config-prettier": "^10.1.8",
@@ -30,13 +30,16 @@
 		"globals": "^17.6.0",
 		"prettier": "^3.8.3",
 		"prettier-plugin-svelte": "^4.1.0",
-		"sass-embedded": "^1.108.2",
 		"svelte": "^5.57.2",
 		"svelte-check": "^4.6.0",
-		"sveltekit-superforms": "^3.1.0",
+		"tailwindcss": "^4.1.0",
 		"typescript": "^6.0.3",
 		"typescript-eslint": "^8.60.1",
-		"vite": "^8.3.0",
-		"yup": "^1.7.1"
+		"vite": "^8.3.0"
+	},
+	"dependencies": {
+		"@fontsource/inter": "^5.2.0",
+		"@fontsource/space-grotesk": "^5.2.0",
+		"echarts": "^6.0.0"
 	}
 }

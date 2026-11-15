@@ -1,0 +1,43 @@
+<script lang="ts">
+	import { goto } from '$app/navigation';
+	import { mission } from '#lib/stores/mission.svelte.ts';
+	import { session } from '#lib/stores/session.svelte.ts';
+	import { latencyText, missionDay } from '#lib/format.ts';
+
+	const m = $derived(mission.state);
+	const link = $derived(
+		mission.offline
+			? 'Backend unreachable'
+			: m
+				? m.linkUp
+					? `Link up · ${latencyText(m.oneWayLatencySeconds)} one-way`
+					: 'Link down'
+				: 'Connecting…'
+	);
+</script>
+
+<header class="grid grid-cols-[1fr_auto_1fr] items-center gap-4 border-b border-line bg-surface px-6 py-3">
+	<div class="flex items-center gap-3">
+		<a href="/crew" class="font-display text-xl font-bold tracking-widest">BASELINE</a>
+		<span class="rounded border border-line px-2 py-0.5 text-xs text-muted">SYNTHETIC DATA</span>
+	</div>
+
+	<p class="font-display text-xl font-medium">
+		{#if m}MET {m.met}{#if missionDay(m.met)} · Day {missionDay(m.met)}{/if}{:else}MET –{/if}
+	</p>
+
+	<div class="flex items-center justify-end gap-3 text-sm text-muted">
+		<span class={mission.offline || m?.linkUp === false ? 'text-watch' : ''}>{link}</span>
+		{#if m?.onboardFirst}<span>· on-board first</span>{/if}
+		<button
+			type="button"
+			class="font-semibold text-ink underline-offset-4 hover:underline"
+			onclick={() => {
+				session.signOut();
+				goto('/');
+			}}
+		>
+			{session.crewName}
+		</button>
+	</div>
+</header>

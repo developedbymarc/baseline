@@ -1,0 +1,49 @@
+@import 'tailwindcss';
+
+/* Option A "Flight Deck" tokens (ui-spec §2). `static` keeps every variable in the
+   output so charts can read them and print can override them. */
+@theme static {
+	--color-bg: #0a0f1c;
+	--color-surface: #121a2b;
+	--color-raised: #1a2c4d;
+	--color-line: #2a3550;
+	--color-ink: #eef2fa;
+	--color-muted: #a7b0c4;
+	--color-action: #8fb8ff;
+	--color-on-action: #0a0f1c;
+	--color-ok: #43d18a;
+	--color-ok-surface: #0f2a1e;
+	--color-watch: #f5b031;
+	--color-watch-surface: #2a2010;
+	--color-act: #ff6b6b;
+	--color-act-ink: #ff8a8a;
+	--color-act-surface: #3a1418;
+
+	--font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+	--font-display: 'Space Grotesk', 'Inter', ui-sans-serif, system-ui, sans-serif;
+}
+
+@layer base {
+	body {
+		@apply bg-bg font-sans text-ink antialiased;
+	}
+	:focus-visible {
+		@apply outline-2 outline-offset-2 outline-action;
+	}
+}
+
+/* Reports are printed on paper: swap the dark tokens for a light set. */
+@media print {
+	:root {
+		--color-bg: #fff;
+		--color-surface: #fff;
+		--color-raised: #f1f3f8;
+		--color-line: #c9d0de;
+		--color-ink: #0a0f1c;
+		--color-muted: #4a5470;
+		--color-ok: #0b7a45;
+		--color-watch: #8a5a00;
+		--color-act: #b42318;
+		--color-act-ink: #b42318;
+	}
+}

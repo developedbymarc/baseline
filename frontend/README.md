@@ -1,54 +1,31 @@
-# sv
+# BASELINE frontend
 
-Everything you need to build a Svelte project, powered by [`sv`](https://github.com/sveltejs/cli).
-
-## Creating a project
-
-If you're seeing this, you've probably already done this step. Congrats!
+SvelteKit 5 + Tailwind CSS 4 + ECharts. Crew screens (tablet) and ground screens (desktop) in the
+Option A "Flight Deck" style from `ui-spec.md`. All data is synthetic; decision support, not diagnosis.
 
 ```sh
-# create a new project
-npx sv create my-app
+npm install
+npm run dev          # http://localhost:5173, backend expected at http://localhost:5074
 ```
 
-To recreate this project with the same configuration:
+Set `VITE_API_URL` to point at a different backend.
 
-```sh
-# recreate this project
-npx sv@1.3.0 create --template minimal --types ts --add prettier eslint sveltekit-adapter="adapter:node" experimental="features:async,remoteFunctions" --install npm .
-```
+## How it fits together
 
-## Adding features
+| Path | What |
+|---|---|
+| `src/app.css` | Tailwind import and the design tokens (`@theme`). No other CSS in the app. |
+| `src/lib/utils/baseline-sdk/` | Generated client. Do not edit; regenerate with `openapitools.json`. |
+| `src/lib/api/client.ts` | The one fetch wrapper: sets `X-Role` / `X-Crew-Id` on every SDK call and unwraps `{ success, data, error }`. |
+| `src/lib/api/index.ts` | Typed functions for every backend call (`api.mission()`, `api.submitMeasurement()`, …). |
+| `src/lib/api/types.ts` | Response shapes. The SDK types many numbers as `{}`, so screens use these. |
+| `src/lib/stores/` | `session` (role + crew), `mission` (2 s poll), `flow` (result, alert, protocol run). |
+| `src/lib/components/` | `Button`, `StatusBadge`, `Icon`, `AlertBanner`, `CrewBar`, `PacketBoxes`, `TrendChart`. |
+| `src/routes/` | `/` role picker · `/crew/*` home, measure, status, protocol, packet, trends · `/ground/*` overview, inbox, reports. |
 
-Add features to your project with `sv add`:
+## Rules baked in
 
-```sh
-npx sv add
-```
-
-For example, to add Tailwind CSS:
-
-```sh
-npx sv add tailwindcss
-```
-
-## Developing
-
-Once you've created a project and installed dependencies with `npm install` (or `pnpm install` or `yarn`), start a development server:
-
-```sh
-npm run dev
-
-# or start the server and open the app in a new browser tab
-npm run dev -- --open
-```
-
-## Building
-
-To create a production version of your app:
-
-```sh
-npm run build
-```
-
-You can preview the production build with `npm run preview`.
+- Shown level is `context?.level ?? status.level`; a lowered level always says "Lowered from … by …".
+- Status is never colour alone: word + shape (circle, triangle, octagon) + colour.
+- Mission time comes from `GET /api/mission`, never `Date.now()`.
+- No CDN at runtime: fonts come from `@fontsource/*`, ECharts from npm.

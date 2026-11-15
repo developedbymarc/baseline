@@ -1,17 +1,14 @@
 <script lang="ts">
-	import type { LayoutProps } from './$types';
-	import MainNav from '#lib/components/MainNav/MainNav.svelte';
-	import MainFooter from '#lib/components/MainFooter/MainFooter.svelte';
-	import "#lib/styles/resets.css";
-	import "#lib/styles/globals.scss";
-	import "#lib/styles/containers.css";
-	import "#lib/styles/common.scss"
+	import '@fontsource/inter/400.css';
+	import '@fontsource/inter/500.css';
+	import '@fontsource/inter/600.css';
+	import '@fontsource/space-grotesk/500.css';
+	import '@fontsource/space-grotesk/700.css';
+	import '../app.css';
 
-	let { children }: LayoutProps = $props();
+	let { children } = $props();
 </script>
 
-<MainNav />
-<main class="main-container">
-	{@render children()}
-</main>
-<MainFooter />
+<svelte:head><title>BASELINE</title></svelte:head>
+
+{@render children()}
