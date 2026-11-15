@@ -33,13 +33,13 @@
 				<span class="rounded border border-line px-2 py-0.5 text-xs text-muted">SYNTHETIC DATA</span>
 			</div>
 
-			<nav class="flex gap-1" aria-label="Ground">
+			<nav class="flex gap-2" aria-label="Ground">
 				{#each NAV as item (item.href)}
 					{@const active = item.href === '/ground' ? page.url.pathname === item.href : page.url.pathname.startsWith(item.href)}
 					<a
 						href={item.href}
 						aria-current={active ? 'page' : undefined}
-						class="rounded-lg px-4 py-2 text-sm font-medium {active ? 'bg-raised text-ink' : 'text-muted hover:text-ink'}"
+						class="inline-flex min-h-11 items-center rounded-lg px-4 text-sm font-medium {active ? 'bg-raised text-ink' : 'text-muted hover:text-ink'}"
 					>
 						{item.label}
 					</a>
@@ -50,7 +50,7 @@
 				<span>{mission.offline ? 'Backend unreachable' : mission.state ? `Mission now ${mission.state.met}` : 'Connecting…'}</span>
 				<button
 					type="button"
-					class="font-semibold text-ink hover:underline"
+					class="min-h-11 rounded-lg px-3 font-semibold text-ink hover:bg-raised"
 					onclick={() => {
 						session.signOut();
 						goto('/');

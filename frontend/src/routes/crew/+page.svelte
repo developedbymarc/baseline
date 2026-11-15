@@ -101,10 +101,11 @@
 	<section class="flex flex-col gap-4" aria-labelledby="due">
 		<h2 id="due" class="font-display text-2xl font-semibold">Measurements</h2>
 
-		{#each visible as r (r.id ?? r.metricCode)}
+		{#each visible as r, i (r.id ?? r.metricCode)}
+			<!-- Portrait (one column): two cards before "Show all", so the main actions stay on screen. -->
 			<a
 				href="/crew/measure?metric={r.metricCode}"
-				class="flex min-h-18 items-center gap-4 rounded-2xl border p-4 transition hover:brightness-125 active:brightness-90
+				class="flex min-h-18 items-center gap-4 rounded-2xl border p-4 transition hover:brightness-125 active:brightness-90 {i >= 2 && !showAll ? 'max-lg:hidden' : ''}
 					{r.overdue ? 'border-watch bg-watch-surface' : r.due ? 'border-action bg-surface' : 'border-line bg-surface'}"
 			>
 				<!-- Overdue / due now / later: told apart by icon and text, not colour alone. -->
@@ -126,8 +127,14 @@
 			<p class="rounded-2xl border border-line bg-surface p-4 text-muted">{loaded ? 'Nothing scheduled right now.' : 'Loading…'}</p>
 		{/each}
 
-		{#if sorted.length > SHOWN}
-			<Button variant="secondary" aria-expanded={showAll} onclick={() => (showAll = !showAll)}>
+		{#if sorted.length > 2}
+			<!-- Landscape shows three, so with exactly three the button is for portrait only. -->
+			<Button
+				variant="secondary"
+				class={sorted.length <= SHOWN ? 'lg:hidden' : ''}
+				aria-expanded={showAll}
+				onclick={() => (showAll = !showAll)}
+			>
 				{showAll ? 'Show fewer' : `Show all (${sorted.length})`}
 			</Button>
 		{/if}

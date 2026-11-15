@@ -5,6 +5,8 @@
 	import { latencyText, missionDay } from '#lib/format.ts';
 
 	const m = $derived(mission.state);
+	/** The name signs out; ask first so a stray tap does not end the session. */
+	let confirmSignOut = $state(false);
 	const link = $derived(
 		mission.offline
 			? 'Backend unreachable'
@@ -19,7 +21,7 @@
 <!-- Three groups that never break inside; on a narrow screen the right group moves to a second row. -->
 <header class="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 border-b border-line bg-surface px-6 py-3">
 	<div class="flex items-center gap-3 whitespace-nowrap">
-		<a href="/crew" class="font-display text-xl font-bold tracking-widest">BASELINE</a>
+		<a href="/crew" class="inline-flex min-h-11 items-center font-display text-xl font-bold tracking-widest">BASELINE</a>
 		<span class="rounded border border-line px-2 py-0.5 text-xs text-muted">SYNTHETIC DATA</span>
 	</div>
 
@@ -30,15 +32,34 @@
 	<div class="flex items-center justify-end gap-3 text-sm whitespace-nowrap text-muted">
 		<span class={mission.offline || m?.linkUp === false ? 'text-watch' : ''}>{link}</span>
 		{#if m?.onboardFirst}<span class="rounded border border-line px-2 py-0.5 text-xs">on-board first</span>{/if}
-		<button
-			type="button"
-			class="max-w-48 truncate font-semibold text-ink underline-offset-4 hover:underline"
-			onclick={() => {
-				session.signOut();
-				goto('/');
-			}}
-		>
-			{session.crewName}
-		</button>
+		{#if confirmSignOut}
+			<span class="text-ink">Sign out?</span>
+			<button
+				type="button"
+				class="min-h-11 rounded-lg border border-line px-3 font-semibold text-ink hover:bg-raised active:brightness-90"
+				onclick={() => {
+					session.signOut();
+					goto('/');
+				}}
+			>
+				Yes
+			</button>
+			<button
+				type="button"
+				class="min-h-11 rounded-lg border border-line px-3 font-semibold text-ink hover:bg-raised active:brightness-90"
+				onclick={() => (confirmSignOut = false)}
+			>
+				No
+			</button>
+		{:else}
+			<button
+				type="button"
+				aria-label="{session.crewName}, sign out"
+				class="min-h-11 max-w-48 truncate font-semibold text-ink underline-offset-4 hover:underline"
+				onclick={() => (confirmSignOut = true)}
+			>
+				{session.crewName}
+			</button>
+		{/if}
 	</div>
 </header>
