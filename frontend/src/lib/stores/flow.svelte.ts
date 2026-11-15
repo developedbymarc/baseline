@@ -43,15 +43,28 @@ class Flow {
 		return this.#closed().includes(alertId);
 	}
 
+	/** Every alert raised during the current red episode (symptom + red readings), closed together. */
+	#episode: string[] = [];
+
+	/**
+	 * Opens the banner, or updates it with a newer red alert. The protocol id and alert id of an
+	 * episode already open are kept when the new alert has none.
+	 */
 	openAlert(alert: OpenAlert) {
 		if (alert.alertId && this.isClosed(alert.alertId)) return;
-		this.alert = alert;
+		if (alert.alertId && !this.#episode.includes(alert.alertId)) this.#episode.push(alert.alertId);
+		this.alert = {
+			alertId: alert.alertId ?? this.alert?.alertId ?? null,
+			reason: alert.reason,
+			protocolId: alert.protocolId ?? this.alert?.protocolId ?? null
+		};
 	}
 
-	/** Called when the protocol run ends or the packet is sent. */
+	/** Called when the protocol run ends. Closes every alert of the episode, so none reopens on reload. */
 	closeAlert() {
-		const id = this.alert?.alertId;
-		if (id && browser) sessionStorage.setItem(CLOSED, JSON.stringify([...this.#closed(), id]));
+		const ids = [...this.#episode, this.alert?.alertId].filter((x): x is string => !!x);
+		if (ids.length && browser) sessionStorage.setItem(CLOSED, JSON.stringify([...new Set([...this.#closed(), ...ids])]));
+		this.#episode = [];
 		this.alert = null;
 		this.run = null;
 		this.protocol = null;

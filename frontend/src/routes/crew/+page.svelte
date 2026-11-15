@@ -64,8 +64,8 @@
 			const res = await api.logSymptom(session.crewId, 'chest_pain');
 			if (res.protocolId) {
 				flow.openAlert({
-					alertId: res.alertId ?? res.alert?.id ?? null,
-					reason: res.reason ?? res.alert?.reason ?? 'Chest pain logged',
+					alertId: res.alertId,
+					reason: 'Symptom reported: chest pain.',
 					protocolId: res.protocolId
 				});
 				await goto('/crew/protocol');

@@ -97,21 +97,20 @@ export interface Reading {
 	context?: ContextInfo | null;
 }
 
-/** Assumed: response of POST /crew/{id}/measurements. */
+/** Response of POST /crew/{id}/measurements. `alertId` is set for every yellow or red in-flight reading. */
 export interface MeasurementResponse {
 	status: StatusInfo;
 	context?: ContextInfo | null;
-	alert?: Alert | null;
+	alertId?: string | null;
 	protocolId?: string | null;
 	packetDraft?: Packet | null;
 }
 
-/** Assumed: response of POST /crew/{id}/symptoms. */
+/** Response of POST /crew/{id}/symptoms. It carries no reason text. */
 export interface SymptomResponse {
-	alertId?: string | null;
-	alert?: Alert | null;
-	reason?: string | null;
-	protocolId?: string | null;
+	symptomLogId: string;
+	alertId: string | null;
+	protocolId: string | null;
 }
 
 export interface Baseline {

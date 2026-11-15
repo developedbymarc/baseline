@@ -96,13 +96,16 @@
 	async function finish() {
 		const outcomes = group!.metrics.map((m) => saved[m.code]);
 		const red = outcomes.find(
-			({ response }) => response.protocolId || (response.alert && shownLevel(response) === 'Red')
+			({ response }) => response.protocolId || shownLevel(response) === 'Red'
 		);
 		if (red) {
+			const { metric, value, response } = red;
+			// Same wording as the stored alert: "Resting heart rate 130 bpm: Above the critical limit …"
+			const reading = `${metric.name} ${value}${metric.unit ? ` ${metric.unit}` : ''}`;
 			flow.openAlert({
-				alertId: red.response.alert?.id ?? null,
-				reason: red.response.alert?.reason ?? red.response.status.reason ?? 'Red alert',
-				protocolId: red.response.protocolId ?? null
+				alertId: response.alertId ?? null,
+				reason: response.status.reason ? `${reading}: ${response.status.reason}` : `${reading}: red reading.`,
+				protocolId: response.protocolId ?? null
 			});
 		}
 		flow.outcomes = outcomes;
