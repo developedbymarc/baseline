@@ -7,8 +7,18 @@
 	import { session } from '#lib/stores/session.svelte.ts';
 	import AlertBanner from '#lib/components/AlertBanner.svelte';
 	import CrewBar from '#lib/components/CrewBar.svelte';
+	import PresenterBar from '#lib/components/PresenterBar.svelte';
 
 	let { children } = $props();
+	/** Bumped by the presenter bar: re-mounts the open screen so it refetches. */
+	let version = $state(0);
+
+	// Reseed gives every crew member a new id, so the crew session ends here.
+	function afterReset() {
+		flow.resetAll();
+		session.signOut();
+		goto('/');
+	}
 	const signedIn = $derived(session.role === 'Crew' && !!session.crewId);
 
 	$effect(() => {
@@ -34,9 +44,10 @@
 	<div class="flex min-h-dvh flex-col">
 		<AlertBanner />
 		<CrewBar />
-		<main class="mx-auto w-full max-w-6xl flex-1 px-6 py-6">{@render children()}</main>
+		<main class="mx-auto w-full max-w-6xl flex-1 px-6 py-6">{#key version}{@render children()}{/key}</main>
 		<footer class="border-t border-line px-6 py-3 text-xs text-muted">
 			Decision support, not diagnosis. All crew data is synthetic.
 		</footer>
+		<PresenterBar onrefresh={() => version++} onreset={afterReset} />
 	</div>
 {/if}

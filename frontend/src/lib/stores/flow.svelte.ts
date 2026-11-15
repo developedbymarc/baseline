@@ -73,6 +73,16 @@ class Flow {
 		this.alert = null;
 	}
 
+	/** Presenter "Reset demo": the database is reloaded, so every id this store holds is gone. */
+	resetAll() {
+		this.#episode = [];
+		this.alert = null;
+		this.outcomes = [];
+		this.returnTo = null;
+		this.closeAlert();
+		if (browser) sessionStorage.removeItem(CLOSED);
+	}
+
 	/** Called when the protocol run ends (or a packet is sent with no run): banner down and run state cleared. */
 	closeAlert() {
 		this.dismissAlert();

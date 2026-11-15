@@ -4,6 +4,7 @@ import {
 	ConfigApi,
 	Configuration,
 	CrewApi,
+	DemoApi,
 	FetchError,
 	GroundApi,
 	MissionApi,
@@ -42,6 +43,7 @@ const config = new Configuration({
 export const sdk = {
 	config: new ConfigApi(config),
 	crew: new CrewApi(config),
+	demo: new DemoApi(config),
 	ground: new GroundApi(config),
 	mission: new MissionApi(config),
 	reports: new ReportsApi(config)

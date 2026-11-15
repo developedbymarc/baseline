@@ -113,5 +113,24 @@ export const api = {
 			})
 		),
 	crewReport: (window: string, period: number) =>
-		unwrap<Report>(sdk.reports.apiReportsCrewWindowPeriodGetRaw({ window, period: String(period) }))
+		unwrap<Report>(sdk.reports.apiReportsCrewWindowPeriodGetRaw({ window, period: String(period) })),
+
+	/** Presenter controls (open endpoints, no role needed). Each returns the new mission state. */
+	demo: {
+		clock: (opts: { fastForward?: boolean; advanceSeconds?: number }) =>
+			unwrap<Mission>(
+				sdk.demo.apiDemoClockPostRaw({
+					clockRequest: {
+						rate: null,
+						paused: null,
+						fastForward: opts.fastForward ?? null,
+						advanceSeconds: (opts.advanceSeconds ?? null) as never
+					}
+				})
+			),
+		link: (up: boolean) =>
+			unwrap<Mission>(sdk.demo.apiDemoLinkPostRaw({ linkRequest: { up, oneWayLatencySeconds: null } })),
+		scene5: () => unwrap<Mission>(sdk.demo.apiDemoScene5PostRaw()),
+		reseed: () => unwrap<unknown>(sdk.demo.apiDemoReseedPostRaw())
+	}
 };

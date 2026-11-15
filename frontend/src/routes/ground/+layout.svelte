@@ -4,8 +4,11 @@
 	import { latencyText } from '#lib/format.ts';
 	import { mission } from '#lib/stores/mission.svelte.ts';
 	import { session } from '#lib/stores/session.svelte.ts';
+	import PresenterBar from '#lib/components/PresenterBar.svelte';
 
 	let { children } = $props();
+	/** Bumped by the presenter bar: re-mounts the open screen so it refetches. */
+	let version = $state(0);
 	const signedIn = $derived(session.role === 'Ground');
 
 	const NAV = [
@@ -61,6 +64,7 @@
 			{#if mission.state}Crew data is at least {latencyText(mission.state.oneWayLatencySeconds)} old.{/if}
 		</p>
 
-		<main class="mx-auto w-full max-w-360 flex-1 px-6 py-6">{@render children()}</main>
+		<main class="mx-auto w-full max-w-360 flex-1 px-6 py-6">{#key version}{@render children()}{/key}</main>
+		<PresenterBar onrefresh={() => version++} onreset={() => version++} />
 	</div>
 {/if}
